@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DocuForms – Form Builder</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/grapesjs/dist/css/grapes.min.css"
+  />
+  <link rel="stylesheet" href="editor.css" />
+</head>
+<body>
+
+<div class="editor-container">
+  <div class="panel__left">
+    <div class="form-list-header">
+      <h3>Forms</h3>
+      <button id="refresh-forms" title="Refresh list">🔄</button>
+    </div>
+    <div id="form-list" class="form-list"></div>
+  </div>
+  <div id="gjs"></div>
+  <div class="panel__right"></div>
+</div>
+
+<div class="save-bar">
+  <div class="form-info">
+    <label for="form-name">Form Name:</label>
+    <input type="text" id="form-name" placeholder="Enter form name" value="Daily Check" />
+    <label for="form-id-input">Form ID:</label>
+    <input type="text" id="form-id-input" placeholder="e.g., daily_check" />
+  </div>
+  <div class="form-actions">
+    <button id="new-form">🆕 New Form</button>
+    <button id="load-form">📂 Load Form</button>
+    <button id="save">💾 Save Form</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/grapesjs"></script>
+<script src="editor.js"></script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+.editor-container {
+  display: flex;
+  height: 90vh;
+}
+
+.panel__left {
+  width: 250px;
+  background: #f5f5f5;
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.form-list-header {
+  padding: 15px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+}
+
+.form-list-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.form-list-header button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+.form-list-header button:hover {
+  background: #f0f0f0;
+}
+
+.form-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.form-list-empty {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-style: italic;
+}
+
+.form-list-item {
+  padding: 12px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.form-list-item:hover {
+  background: #e9ecef;
+  border-color: #007bff;
+  transform: translateX(2px);
+}
+
+.form-list-item-name {
+  font-weight: bold;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.form-list-item-id {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
+  margin-bottom: 2px;
+}
+
+.form-list-item-date {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+}
+
+#gjs {
+  flex: 1;
+  border-right: 1px solid #ddd;
+}
+
+.panel__right {
+  width: 300px;
+  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Panel buttons bar - GrapesJS will add this */
+.panel__right .gjs-pn-panels {
+  display: flex;
+  gap: 5px;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  background: white;
+  flex-shrink: 0;
+}
+
+.panel__right .gjs-pn-btn {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 18px;
+}
+
+.panel__right .gjs-pn-btn:hover {
+  background: #f0f0f0;
+}
+
+.panel__right .gjs-pn-btn.gjs-pn-active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.managers-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.layers-wrapper,
+.styles-wrapper,
+.traits-wrapper {
+  width: 100%;
+  background: white;
+}
+
+/* Ensure GrapesJS manager containers fill the space */
+.layers-wrapper .gjs-lm-container,
+.styles-wrapper .gjs-sm-sector,
+.traits-wrapper .gjs-trt-traits {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.save-bar {
+  height: 10vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #f5f5f5;
+  border-top: 1px solid #ddd;
+}
+
+.form-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.form-info label {
+  font-weight: bold;
+}
+
+.form-info input[type="text"] {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+#form-id-input {
+  font-family: monospace;
+  background: #f8f9fa;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+#new-form,
+#load-form,
+#save {
+  padding: 10px 30px;
+  font-size: 18px;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+#new-form {
+  background: #6c757d;
+}
+
+#new-form:hover {
+  background: #5a6268;
+}
+
+#load-form {
+  background: #28a745;
+}
+
+#load-form:hover {
+  background: #218838;
+}
+
+#save {
+  background: #007bff;
+}
+
+#save:hover {
+  background: #0056b3;
+}
+  

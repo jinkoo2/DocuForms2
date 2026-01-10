@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DocuForms – Form Runner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="runner-container">
+  <div class="panel__left">
+    <div class="form-list-header">
+      <h3>Forms</h3>
+      <button id="refresh-forms" title="Refresh list">🔄</button>
+    </div>
+    <div id="form-list" class="form-list">
+      <div class="form-list-loading">Loading forms...</div>
+    </div>
+  </div>
+  
+  <div class="panel__main">
+    <h2 id="form-title">Loading…</h2>
+
+    <form id="form">
+      <div id="fields"></div>
+
+      <div class="result">
+        Result:
+        <span id="live-result">—</span>
+      </div>
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <pre id="server-response"></pre>
+  </div>
+</div>
+
+<script src="runner.js"></script>
+
+</body>
+</html>
