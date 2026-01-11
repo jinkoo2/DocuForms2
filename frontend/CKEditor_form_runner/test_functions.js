@@ -16,6 +16,11 @@ function test_input_pass_warning_fail(input) {
       const [min, max] = r.split(':').map(Number);
       return v >= min && v <= max;
     };
+
+    // If no passRange and no warningRange provided, nothing to evaluate.
+    if (!input.dataset.passRange && !input.dataset.warningRange) {
+      return;
+    }
   
     let result = 'FAIL';
     let color = 'red';
