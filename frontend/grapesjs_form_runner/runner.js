@@ -106,6 +106,7 @@ function renderFormHtml(html) {
 async function evaluateLive() {
   if (!formDef.rules || formDef.rules.length === 0) {
     liveResultEl.textContent = "—";
+    liveResultEl.className = "";
     return;
   }
 
@@ -173,6 +174,13 @@ function getFormValues() {
   return values;
 }
 
+function getResultForSubmit() {
+  const displayed = (liveResultEl.textContent || '').trim().toUpperCase();
+  if (displayed) return displayed;
+  // Default to PASS if nothing computed; adjust as needed.
+  return "PASS";
+}
+
 /* --------------------------
    Submit to backend
 --------------------------- */
@@ -180,6 +188,7 @@ formEl.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const values = getFormValues();
+  const result = getResultForSubmit();
 
   if (!FORM_ID) {
     alert('No form selected. Please select a form from the list.');
@@ -189,15 +198,16 @@ formEl.addEventListener("submit", async (e) => {
   const res = await fetch(`${API_BASE}/${FORM_ID}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ values })
+    body: JSON.stringify({ values, result })
   });
 
   const data = await res.json();
   serverResponseEl.textContent = JSON.stringify(data, null, 2);
 
-  liveResultEl.textContent = data.computed.result;
+  const normalized = (data.result || '').toUpperCase();
+  liveResultEl.textContent = normalized;
   liveResultEl.className =
-    data.computed.result === "PASS" ? "pass" : "fail";
+    normalized === "PASS" ? "pass" : (normalized === "FAIL" ? "fail" : "");
 });
 
 /* --------------------------

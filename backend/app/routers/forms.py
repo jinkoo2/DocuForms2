@@ -55,19 +55,4 @@ async def delete_form(form_id: str):
     return {"status": "ok", "formId": form_id}
 
 
-@router.get("/{form_id}/references")
-async def get_form_references_preview(form_id: str):
-    """
-    Optional helper endpoint for the frontend:
-    returns last submission values for THIS form.
-
-    Note: your evaluations can still reference other forms globally
-    via rules (right.source=reference, right.formId=...).
-    """
-    last = await submissions_collection.find_one(
-        {"formId": form_id},
-        sort=[("submittedAt", -1)]
-    )
-    if last:
-        return convert_objectid_to_str(last).get("values", {})
-    return {}
+# Rules/references endpoints removed; all evaluation is handled by callers.

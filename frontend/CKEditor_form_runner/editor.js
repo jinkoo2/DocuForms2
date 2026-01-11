@@ -113,7 +113,8 @@ function updatePreview(html) {
         ${html}
       </div>
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-    </body>
+      <script src="test_functions.js"></script>
+      </body>
     </html>
   `;
   
@@ -764,6 +765,20 @@ function setupSourceSync() {
     sourceTimeout = setTimeout(syncPreview, 1000); // 1 second debounce
   });
   
+  // Allow Tab key to insert a tab character instead of leaving the textarea
+  sourceEditor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = sourceEditor.selectionStart;
+      const end = sourceEditor.selectionEnd;
+      const value = sourceEditor.value;
+      sourceEditor.value = value.slice(0, start) + '\t' + value.slice(end);
+      // place caret after inserted tab and trigger normal input flow
+      sourceEditor.selectionStart = sourceEditor.selectionEnd = start + 1;
+      sourceEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+
   // Also handle paste events
   sourceEditor.addEventListener('paste', () => {
     clearTimeout(sourceTimeout);

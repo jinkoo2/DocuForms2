@@ -3,7 +3,6 @@ from datetime import datetime
 
 from app.database import forms_collection, submissions_collection, convert_objectid_to_str
 from app.schemas import SubmissionIn
-from app.rules import evaluate_rules
 
 router = APIRouter(prefix="/api/forms", tags=["submissions"])
 
@@ -14,19 +13,13 @@ async def submit_form(form_id: str, submission: SubmissionIn):
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
 
-    rules = form.get("rules", [])
-    all_passed, references_used, details = await evaluate_rules(rules, submission.values)
-
-    computed = {
-        "result": "PASS" if all_passed else "FAIL",
-        "details": details,  # keep/remove depending on what you want to return
-    }
-
+    # Caller provides the computed result; backend simply stores it with metadata and HTML snapshot.
     doc = {
         "formId": form_id,
         "values": submission.values,
-        "referencesUsed": references_used,
-        "computed": computed,
+        "metadata": submission.metadata,
+        "result": submission.result,
+        "formHtml": form.get("html", ""),
         "submittedAt": datetime.utcnow()
     }
 

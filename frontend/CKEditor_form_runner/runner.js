@@ -9,6 +9,7 @@ const fieldsEl = document.getElementById("fields");
 const titleEl = document.getElementById("form-title");
 const liveResultEl = document.getElementById("live-result");
 const serverResponseEl = document.getElementById("server-response");
+const submitBtn = formEl ? formEl.querySelector('button[type="submit"]') : null;
 
 let formDef = null;
 
@@ -96,7 +97,12 @@ function renderFormHtml(html) {
 
   fieldsEl.querySelectorAll("input").forEach(input => {
     input.addEventListener("input", evaluateLive);
+    // Update submit availability when required fields change
+    input.addEventListener("input", updateSubmitEnabled);
   });
+
+  // Set submit button state on initial render
+  updateSubmitEnabled();
 }
 
 /* --------------------------
@@ -104,8 +110,10 @@ function renderFormHtml(html) {
    (frontend convenience)
 --------------------------- */
 async function evaluateLive() {
+  // If there are no backend rules, fall back to client-side field results
   if (!formDef.rules || formDef.rules.length === 0) {
-    liveResultEl.textContent = "—";
+    const aggregated = aggregateFieldResults();
+    setLiveResult(aggregated);
     return;
   }
 
@@ -131,6 +139,45 @@ async function evaluateLive() {
 
   liveResultEl.textContent = allPass ? "PASS" : "FAIL";
   liveResultEl.className = allPass ? "pass" : "fail";
+}
+
+/* --------------------------
+   Aggregate field-level results
+   Fail > Warning > Pass
+--------------------------- */
+function aggregateFieldResults() {
+  const inputs = fieldsEl.querySelectorAll('input, select, textarea');
+  let hasFail = false;
+  let hasWarning = false;
+  let hasPass = false;
+
+  inputs.forEach((el) => {
+    const r = el.dataset?.result;
+    if (!r) return;
+    const v = r.toLowerCase();
+    if (v === 'fail') hasFail = true;
+    else if (v === 'warning') hasWarning = true;
+    else if (v === 'pass') hasPass = true;
+  });
+
+  if (hasFail) return 'FAIL';
+  if (hasWarning) return 'WARNING';
+  if (hasPass) return 'PASS';
+  return '—';
+}
+
+function setLiveResult(result) {
+  const normalized = (result || '').toUpperCase();
+  liveResultEl.textContent = normalized || '—';
+  if (normalized === 'FAIL') {
+    liveResultEl.className = 'fail';
+  } else if (normalized === 'WARNING') {
+    liveResultEl.className = 'warning';
+  } else if (normalized === 'PASS') {
+    liveResultEl.className = 'pass';
+  } else {
+    liveResultEl.className = '';
+  }
 }
 
 /* --------------------------
@@ -173,6 +220,64 @@ function getFormValues() {
   return values;
 }
 
+function getResultForSubmit() {
+  // Prefer aggregated field results; if none, fall back to current live display.
+  const aggregated = aggregateFieldResults();
+  if (aggregated && aggregated !== '—') return aggregated.toUpperCase();
+  const displayed = (liveResultEl.textContent || '').trim().toUpperCase();
+  return displayed || 'UNKNOWN';
+}
+
+/* --------------------------
+   Collect data-* metadata per control
+--------------------------- */
+function getControlMetadata() {
+  const meta = {};
+  const controls = formEl.querySelectorAll('input, select, textarea');
+
+  controls.forEach((el) => {
+    const name = el.getAttribute('name') || el.id;
+    if (!name) return;
+
+    const datasetEntries = Object.entries(el.dataset || {});
+    if (datasetEntries.length === 0) {
+      meta[name] = {};
+      return;
+    }
+
+    meta[name] = datasetEntries.reduce((acc, [key, val]) => {
+      // Normalize result to uppercase to align with backend expectation
+      if (key === 'result' && typeof val === 'string') {
+        acc[key] = val.toUpperCase();
+      } else {
+        acc[key] = val;
+      }
+      return acc;
+    }, {});
+  });
+
+  return meta;
+}
+
+/* --------------------------
+   Enable/disable submit based on required fields
+--------------------------- */
+function updateSubmitEnabled() {
+  if (!formEl || !submitBtn) return;
+
+  const requiredInputs = formEl.querySelectorAll('input[required], textarea[required], select[required]');
+  let allFilled = true;
+
+  requiredInputs.forEach((el) => {
+    if (el.value === null || el.value.trim() === '') {
+      allFilled = false;
+    }
+  });
+
+  submitBtn.disabled = !allFilled;
+  submitBtn.title = allFilled ? '' : 'Fill all required fields to submit';
+}
+
 /* --------------------------
    Submit to backend
 --------------------------- */
@@ -180,6 +285,8 @@ formEl.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const values = getFormValues();
+  const metadata = getControlMetadata();
+  const result = getResultForSubmit();
 
   if (!FORM_ID) {
     alert('No form selected. Please select a form from the list.');
@@ -189,15 +296,13 @@ formEl.addEventListener("submit", async (e) => {
   const res = await fetch(`${API_BASE}/${FORM_ID}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ values })
+    body: JSON.stringify({ values, metadata, result })
   });
 
   const data = await res.json();
   serverResponseEl.textContent = JSON.stringify(data, null, 2);
 
-  liveResultEl.textContent = data.computed.result;
-  liveResultEl.className =
-    data.computed.result === "PASS" ? "pass" : "fail";
+  setLiveResult((data.result || '').toUpperCase());
 });
 
 /* --------------------------
