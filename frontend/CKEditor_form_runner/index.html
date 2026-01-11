@@ -6,8 +6,29 @@
   <title>DocuForms – Form Runner</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous" />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Chart.js (no integrity to avoid blocking if hash changes) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 </head>
 <body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">DocuForms Runner</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link active" aria-current="page" href="#">Runner</a>
+        </li>
+        <li class="nav-item ms-2">
+          <a class="btn btn-outline-light btn-sm" href="editor.html">Form Builder</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
 
 <div class="runner-container">
   <div class="panel__left">
@@ -23,18 +44,78 @@
   <div class="panel__main">
     <h2 id="form-title">Loading…</h2>
 
-    <form id="form">
-      <div id="fields"></div>
+    <ul class="nav nav-tabs mb-3" id="runnerTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="form-tab-btn" data-bs-toggle="tab" data-bs-target="#form-tab" type="button" role="tab" aria-controls="form-tab" aria-selected="true">Form</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="submissions-tab-btn" data-bs-toggle="tab" data-bs-target="#submissions-tab" type="button" role="tab" aria-controls="submissions-tab" aria-selected="false">Submissions</button>
+      </li>
+    </ul>
 
-      <div class="result">
-        Result:
-        <span id="live-result">—</span>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="form-tab" role="tabpanel" aria-labelledby="form-tab-btn">
+        <form id="form">
+          <div id="fields"></div>
+
+          <div class="result">
+            Result:
+            <span id="live-result">—</span>
+          </div>
+
+          <button type="submit">Submit</button>
+        </form>
+
+        <pre id="server-response"></pre>
       </div>
 
-      <button type="submit">Submit</button>
-    </form>
+      <div class="tab-pane fade" id="submissions-tab" role="tabpanel" aria-labelledby="submissions-tab-btn">
+        <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
+          <label class="form-label mb-0" for="submissions-view-mode">View:</label>
+          <select id="submissions-view-mode" class="form-select form-select-sm" style="width:auto;">
+            <option value="list">List</option>
+            <option value="table" selected>Table</option>
+          </select>
+        </div>
+        <div id="submissions-list" class="mt-3">
+          <div class="form-list-loading">No submissions yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <pre id="server-response"></pre>
+<!-- Submission Preview Modal -->
+<div class="modal fade" id="submissionPreviewModal" tabindex="-1" aria-labelledby="submissionPreviewLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="submissionPreviewLabel">Submission Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <iframe id="submission-preview-frame" class="w-100 border-0" style="height:70vh;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Plot Modal -->
+<div class="modal fade" id="submissionPlotModal" tabindex="-1" aria-labelledby="submissionPlotLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header position-relative draggable-plot-header" id="plot-drag-handle">
+        <h5 class="modal-title" id="submissionPlotLabel">Value Plot</h5>
+        <div class="position-absolute end-0 top-0 p-2 d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="plot-maximize-btn">Maximize</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="plot-restore-btn">Restore</button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <canvas id="submission-plot-canvas" height="200"></canvas>
+      </div>
+    </div>
   </div>
 </div>
 

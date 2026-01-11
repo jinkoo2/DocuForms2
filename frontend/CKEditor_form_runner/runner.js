@@ -10,6 +10,18 @@ const titleEl = document.getElementById("form-title");
 const liveResultEl = document.getElementById("live-result");
 const serverResponseEl = document.getElementById("server-response");
 const submitBtn = formEl ? formEl.querySelector('button[type="submit"]') : null;
+const submissionsListEl = document.getElementById("submissions-list");
+const submissionPreviewFrame = document.getElementById("submission-preview-frame");
+const plotCanvas = document.getElementById("submission-plot-canvas");
+const plotMaxBtn = document.getElementById("plot-maximize-btn");
+const plotRestoreBtn = document.getElementById("plot-restore-btn");
+const plotModalEl = document.getElementById("submissionPlotModal");
+const plotDragHandle = document.getElementById("plot-drag-handle");
+const submissionsViewMode = document.getElementById("submissions-view-mode");
+let submissionPreviewModal = null;
+let submissionPlotModal = null;
+let plotChart = null;
+let cachedSubmissions = [];
 
 let formDef = null;
 
@@ -50,6 +62,8 @@ async function loadForm(formId = null) {
     liveResultEl.textContent = "—";
     liveResultEl.className = "";
     serverResponseEl.textContent = "";
+    // Load submissions list
+    loadSubmissions(formIdToLoad);
     
     // Update URL without reload
     const newUrl = new URL(window.location);
@@ -220,6 +234,407 @@ function getFormValues() {
   return values;
 }
 
+/* --------------------------
+   Submissions list
+--------------------------- */
+async function loadSubmissions(formId = null) {
+  if (!formId || !submissionsListEl) return;
+  submissionsListEl.innerHTML = '<div class="form-list-loading">Loading submissions...</div>';
+  try {
+    const res = await fetch(`${API_BASE}/${formId}/submissions`);
+    if (!res.ok) throw new Error(`Failed to load submissions: ${res.statusText}`);
+    const submissions = await res.json();
+    cachedSubmissions = submissions || [];
+    renderSubmissions(submissions);
+  } catch (err) {
+    submissionsListEl.innerHTML = `<div class="text-danger">Error: ${err.message}</div>`;
+  }
+}
+
+function renderSubmissions(submissions) {
+  if (!submissionsListEl) return;
+
+  const viewMode = submissionsViewMode?.value || 'list';
+
+  if (!submissions || submissions.length === 0) {
+    submissionsListEl.innerHTML = '<div class="form-list-empty">No submissions yet.</div>';
+    return;
+  }
+
+  if (viewMode === 'table') {
+    const rows = submissions.map((s) => {
+      const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '';
+      const result = (s.result || '').toUpperCase();
+      const id = s.id || '';
+      const hasHtml = !!s.formHtml;
+      const resultBadge =
+        result === 'PASS' ? 'bg-success' :
+        result === 'WARNING' ? 'bg-warning text-dark' :
+        result === 'FAIL' ? 'bg-danger' : 'bg-secondary';
+
+      return `
+        <tr data-id="${id}">
+          <td class="text-nowrap">${date}</td>
+          <td><span class="badge ${resultBadge}">${result || '—'}</span></td>
+          <td class="text-nowrap">
+            ${hasHtml ? `<button class="btn btn-sm btn-outline-primary view-submission-btn" data-id="${id}">View Form</button>` : ''}
+            <button class="btn btn-sm btn-outline-danger delete-submission-btn" data-id="${id}">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    submissionsListEl.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-sm align-middle" id="submissions-table">
+          <thead>
+            <tr>
+              <th scope="col">Date/Time</th>
+              <th scope="col">Result</th>
+              <th scope="col">Commands</th>
+            </tr>
+          </thead>
+          <tbody id="submissions-tbody">
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    const cards = submissions.map((s) => {
+      const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '';
+      const result = (s.result || '').toUpperCase();
+      const id = s.id || '';
+      const hasHtml = !!s.formHtml;
+      return `
+        <div class="card mb-2">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-bold">Result: ${result || '—'}</div>
+                <div class="text-muted small">${date}</div>
+              </div>
+              <div class="badge ${result === 'PASS' ? 'bg-success' : result === 'WARNING' ? 'bg-warning text-dark' : 'bg-danger'}">${result || '—'}</div>
+            </div>
+            <pre class="mt-2 mb-3" style="white-space: pre-wrap; word-break: break-word;">${JSON.stringify(s.values, null, 2)}</pre>
+            <div class="d-flex justify-content-end gap-2">
+              ${hasHtml ? `<button class="btn btn-sm btn-outline-primary view-submission-btn" data-id="${id}">View Form</button>` : ''}
+              <button class="btn btn-sm btn-outline-danger delete-submission-btn" data-id="${id}">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    submissionsListEl.innerHTML = cards;
+  }
+
+  // Attach delete handlers
+  submissionsListEl.querySelectorAll('.delete-submission-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const submissionId = btn.getAttribute('data-id');
+      if (!submissionId || !FORM_ID) return;
+      const confirmDelete = confirm('Delete this submission?');
+      if (!confirmDelete) return;
+      try {
+        const res = await fetch(`${API_BASE}/${FORM_ID}/submissions/${submissionId}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error(`Failed to delete: ${res.statusText}`);
+        loadSubmissions(FORM_ID);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+
+  // Attach view handlers
+  submissionsListEl.querySelectorAll('.view-submission-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const submissionId = btn.getAttribute('data-id');
+      const submission = submissions.find(s => (s.id || '') === submissionId);
+      if (!submission || !submission.formHtml) return;
+      showSubmissionPreview(submission.formHtml, submission.values, submission);
+    });
+  });
+}
+
+// Switch view mode
+submissionsViewMode?.addEventListener('change', () => {
+  renderSubmissions(cachedSubmissions);
+});
+
+// default to table view on load if available
+if (submissionsViewMode) {
+  submissionsViewMode.value = 'table';
+}
+
+function showSubmissionPreview(html, values, submission = {}) {
+  if (!submissionPreviewFrame) return;
+  if (!submissionPreviewModal) {
+    const modalEl = document.getElementById('submissionPreviewModal');
+    if (modalEl && window.bootstrap) {
+      submissionPreviewModal = new bootstrap.Modal(modalEl);
+    }
+  }
+
+  const resultText = (submission.result || '').toUpperCase();
+
+  const titleEl = document.getElementById('submissionPreviewLabel');
+  if (titleEl) {
+    const formName = submission.formName || formDef?.name || FORM_ID || 'Submission';
+    const dt = submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : '';
+    const resultTitle = resultText || '';
+    const parts = [formName];
+    if (dt) parts.push(dt);
+    if (resultTitle) parts.push(resultTitle);
+    titleEl.textContent = parts.join(' - ');
+  }
+
+  const doc = submissionPreviewFrame.contentDocument || submissionPreviewFrame.contentWindow.document;
+  const resultBadge =
+    resultText === 'PASS' ? 'bg-success' :
+    resultText === 'WARNING' ? 'bg-warning text-dark' :
+    resultText === 'FAIL' ? 'bg-danger' : 'bg-secondary';
+
+  const fullHtml = `<!DOCTYPE html>
+  <html><head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  </head>
+  <body>
+    <div class="p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="h6 mb-0">Submission Result</div>
+        <span class="badge ${resultBadge}">${resultText || '—'}</span>
+      </div>
+      ${html}
+    </div>
+  </body></html>`;
+
+  doc.open();
+  doc.write(fullHtml);
+  doc.close();
+
+  // populate values and set readonly/disabled, and show per-field result badges
+  const controls = doc.querySelectorAll('input, select, textarea');
+  controls.forEach((el) => {
+    const key = el.name || el.id;
+    if (values && key && key in values) {
+      el.value = values[key];
+    }
+    el.setAttribute('readonly', true);
+    el.setAttribute('disabled', true);
+
+    // attach result badge if present in metadata
+    const fieldMeta = submission.metadata && key ? submission.metadata[key] : null;
+    const fieldResult = fieldMeta && fieldMeta.result ? String(fieldMeta.result).toUpperCase() : '';
+    if (fieldResult) {
+      const badgeClass =
+        fieldResult === 'PASS' ? 'bg-success' :
+        fieldResult === 'WARNING' ? 'bg-warning text-dark' :
+        fieldResult === 'FAIL' ? 'bg-danger' : 'bg-secondary';
+      const badge = doc.createElement('span');
+      badge.className = `badge ${badgeClass} ms-2`;
+      badge.textContent = fieldResult;
+      const parent = el.parentElement;
+      if (parent) {
+        parent.appendChild(badge);
+      } else {
+        el.insertAdjacentElement('afterend', badge);
+      }
+    }
+  });
+
+  // add plot buttons next to number inputs
+  const numberInputs = doc.querySelectorAll('input[type="number"]');
+  numberInputs.forEach((el) => {
+    const btn = doc.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline-secondary ms-2';
+    btn.textContent = 'Trend';
+    btn.addEventListener('click', () => {
+      const fieldKey = el.name || el.id || 'value';
+      if (window.showPlotModalFromIframe) {
+        window.showPlotModalFromIframe(fieldKey);
+      }
+    });
+    const parent = el.parentElement;
+    if (parent) {
+      parent.appendChild(btn);
+    } else {
+      el.insertAdjacentElement('afterend', btn);
+    }
+  });
+
+  if (submissionPreviewModal) {
+    submissionPreviewModal.show();
+  }
+}
+
+// exposed to iframe
+window.showPlotModalFromIframe = (fieldKey) => showPlotModal(fieldKey);
+
+function showPlotModal(fieldKey) {
+  if (!plotCanvas) return;
+  if (typeof Chart === 'undefined') {
+    alert('Chart library not loaded. Please check network access.');
+    return;
+  }
+  if (!submissionPlotModal) {
+    const modalEl = document.getElementById('submissionPlotModal');
+    if (modalEl && window.bootstrap) {
+      submissionPlotModal = new bootstrap.Modal(modalEl);
+    }
+  }
+
+  if (!cachedSubmissions || cachedSubmissions.length === 0) {
+    alert('No submissions to plot.');
+    return;
+  }
+
+  const points = [];
+  cachedSubmissions.forEach((s) => {
+    const val = s.values ? s.values[fieldKey] : undefined;
+    const num = Number(val);
+    if (!Number.isNaN(num) && s.submittedAt) {
+      points.push({
+        x: new Date(s.submittedAt),
+        y: num
+      });
+    }
+  });
+
+  if (points.length === 0) {
+    alert('No numeric values found for this field.');
+    return;
+  }
+
+  points.sort((a, b) => a.x - b.x);
+
+  if (plotChart) {
+    plotChart.destroy();
+  }
+
+  plotChart = new Chart(plotCanvas, {
+    type: 'line',
+    data: {
+      labels: points.map(p => p.x.toLocaleString()),
+      datasets: [{
+        label: fieldKey || 'Value',
+        data: points.map(p => p.y),
+        borderColor: 'rgba(54, 162, 235, 1)',
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+
+  if (submissionPlotModal) {
+    submissionPlotModal.show();
+  }
+
+  // reset maximize state when opening
+  restorePlotSize();
+}
+
+function maximizePlot() {
+  const modalEl = document.getElementById('submissionPlotModal');
+  if (!modalEl) return;
+  modalEl.classList.add('modal-fullscreen');
+  const dialog = modalEl.querySelector('.modal-dialog');
+  if (dialog) {
+    dialog.classList.add('modal-fullscreen');
+    dialog.style.position = 'fixed';
+    dialog.style.left = '0';
+    dialog.style.top = '0';
+    dialog.style.margin = '0';
+  }
+  plotMaxBtn?.classList.add('d-none');
+  plotRestoreBtn?.classList.remove('d-none');
+}
+
+function restorePlotSize() {
+  const modalEl = document.getElementById('submissionPlotModal');
+  if (!modalEl) return;
+  modalEl.classList.remove('modal-fullscreen');
+  const dialog = modalEl.querySelector('.modal-dialog');
+  if (dialog) {
+    dialog.classList.remove('modal-fullscreen');
+    dialog.style.position = '';
+    dialog.style.left = '';
+    dialog.style.top = '';
+    dialog.style.margin = '';
+  }
+  plotMaxBtn?.classList.remove('d-none');
+  plotRestoreBtn?.classList.add('d-none');
+}
+
+plotMaxBtn?.addEventListener('click', maximizePlot);
+plotRestoreBtn?.addEventListener('click', restorePlotSize);
+
+// Basic drag-to-move when not fullscreen
+if (plotModalEl && plotDragHandle) {
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+  let startLeft = 0;
+  let startTop = 0;
+
+  const dialog = plotModalEl.querySelector('.modal-dialog');
+
+  const onMouseDown = (e) => {
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = dialog.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    dialog.style.position = 'fixed';
+    dialog.style.margin = '0';
+    dialog.style.left = `${startLeft}px`;
+    dialog.style.top = `${startTop}px`;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  };
+
+  const onMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    dialog.style.left = `${startLeft + dx}px`;
+    dialog.style.top = `${startTop + dy}px`;
+  };
+
+  const onMouseUp = () => {
+    isDragging = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  plotDragHandle.addEventListener('mousedown', onMouseDown);
+
+  plotModalEl.addEventListener('hidden.bs.modal', () => {
+    // reset position when closing
+    dialog.style.position = '';
+    dialog.style.margin = '';
+    dialog.style.left = '';
+    dialog.style.top = '';
+  });
+}
+
+// Load submissions when switching to the tab
+document.getElementById('submissions-tab-btn')?.addEventListener('shown.bs.tab', () => {
+  if (FORM_ID) {
+    loadSubmissions(FORM_ID);
+  }
+});
+
 function getResultForSubmit() {
   // Prefer aggregated field results; if none, fall back to current live display.
   const aggregated = aggregateFieldResults();
@@ -303,6 +718,8 @@ formEl.addEventListener("submit", async (e) => {
   serverResponseEl.textContent = JSON.stringify(data, null, 2);
 
   setLiveResult((data.result || '').toUpperCase());
+  // Refresh submissions list after submit
+  loadSubmissions(FORM_ID);
 });
 
 /* --------------------------

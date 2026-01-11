@@ -1,3 +1,7 @@
+function _eid(id){
+    return document.getElementById(id);
+}
+
 function test_input_pass_warning_fail(input) {
 
     if (!input || input.value === '') {

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
+from bson import ObjectId
 
 from app.database import forms_collection, submissions_collection, convert_objectid_to_str
 from app.schemas import SubmissionIn
@@ -25,3 +26,38 @@ async def submit_form(form_id: str, submission: SubmissionIn):
 
     await submissions_collection.insert_one(doc)
     return convert_objectid_to_str(doc)
+
+
+@router.get("/{form_id}/submissions")
+async def list_submissions(form_id: str):
+    """Return submissions for a form (most recent first)."""
+    submissions = []
+    cursor = submissions_collection.find(
+        {"formId": form_id},
+        sort=[("submittedAt", -1)]
+    )
+    async for doc in cursor:
+        doc = convert_objectid_to_str(doc)
+        submissions.append({
+            "id": doc.get("_id"),
+            "values": doc.get("values", {}),
+            "metadata": doc.get("metadata", {}),
+            "result": doc.get("result"),
+            "submittedAt": doc.get("submittedAt"),
+            "formHtml": doc.get("formHtml", ""),
+        })
+    return submissions
+
+
+@router.delete("/{form_id}/submissions/{submission_id}")
+async def delete_submission(form_id: str, submission_id: str):
+    """Delete a single submission by id."""
+    try:
+        oid = ObjectId(submission_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid submission id")
+
+    result = await submissions_collection.delete_one({"_id": oid, "formId": form_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    return {"status": "ok", "deletedId": submission_id}
