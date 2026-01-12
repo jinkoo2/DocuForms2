@@ -37,6 +37,11 @@ async function initializeEditor() {
   setupPreview();
   setupSourceSync();
   
+  // Setup resizer after a short delay to ensure DOM is ready
+  setTimeout(() => {
+    setupResizer();
+  }, 100);
+  
   // Load form list
   loadFormList();
   
@@ -800,6 +805,119 @@ function setupSourceSync() {
     attributes: true,
     attributeFilter: ['value']
   });
+}
+
+/* -----------------------------
+   Resizable Divider Setup
+----------------------------- */
+function setupResizer() {
+  const resizer = document.getElementById('resizer');
+  const sourcePanel = document.getElementById('source-panel');
+  const previewPanel = document.getElementById('preview-panel');
+  const previewFrame = document.getElementById('preview-frame');
+  
+  if (!resizer || !sourcePanel || !previewPanel) {
+    console.warn('Resizer elements not found:', { resizer, sourcePanel, previewPanel });
+    return;
+  }
+  
+  let isResizing = false;
+  let startX = 0;
+  let startSourceWidth = 0;
+  let animationFrameId = null;
+  const minWidth = 200; // Minimum width for each panel
+  
+  const updatePanels = (deltaX) => {
+    const container = sourcePanel.parentElement;
+    const containerWidth = container.offsetWidth;
+    const resizerWidth = resizer.offsetWidth;
+    
+    let newSourceWidth = startSourceWidth + deltaX;
+    let newPreviewWidth = containerWidth - newSourceWidth - resizerWidth;
+    
+    // Enforce minimum widths
+    if (newSourceWidth < minWidth) {
+      newSourceWidth = minWidth;
+      newPreviewWidth = containerWidth - minWidth - resizerWidth;
+    } else if (newPreviewWidth < minWidth) {
+      newPreviewWidth = minWidth;
+      newSourceWidth = containerWidth - minWidth - resizerWidth;
+    }
+    
+    sourcePanel.style.width = `${newSourceWidth}px`;
+    previewPanel.style.width = `${newPreviewWidth}px`;
+    previewPanel.style.flex = 'none';
+  };
+  
+  const onMouseMove = (e) => {
+    if (!isResizing) return;
+    
+    // Cancel any pending animation frame
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+    }
+    
+    // Use requestAnimationFrame for smooth updates
+    animationFrameId = requestAnimationFrame(() => {
+      const deltaX = e.clientX - startX;
+      updatePanels(deltaX);
+    });
+  };
+  
+  const onMouseUp = (e) => {
+    if (isResizing) {
+      isResizing = false;
+      
+      // Cancel any pending animation frame
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      
+      // Re-enable pointer events on panels
+      sourcePanel.style.pointerEvents = '';
+      previewPanel.style.pointerEvents = '';
+      if (previewFrame) {
+        previewFrame.style.pointerEvents = '';
+      }
+      
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove, true);
+      document.removeEventListener('mouseup', onMouseUp, true);
+    }
+  };
+  
+  const onMouseDown = (e) => {
+    // Only start resizing on left mouse button
+    if (e.button !== 0) return;
+    
+    isResizing = true;
+    startX = e.clientX;
+    startSourceWidth = sourcePanel.offsetWidth;
+    
+    // Disable pointer events on panels to prevent them from stealing mouse events
+    sourcePanel.style.pointerEvents = 'none';
+    previewPanel.style.pointerEvents = 'none';
+    if (previewFrame) {
+      previewFrame.style.pointerEvents = 'none';
+    }
+    
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    
+    // Use capture phase to ensure we get the events
+    document.addEventListener('mousemove', onMouseMove, true);
+    document.addEventListener('mouseup', onMouseUp, true);
+    
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  
+  // Attach event listener to resizer
+  resizer.addEventListener('mousedown', onMouseDown);
+  
+  console.log('Resizer setup complete', { resizer, sourcePanel, previewPanel });
 }
 
 function updateSourceEditor(html) {

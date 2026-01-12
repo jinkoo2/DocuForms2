@@ -24,6 +24,7 @@ let plotChart = null;
 let cachedSubmissions = [];
 
 let formDef = null;
+let baselineSubmission = null;
 
 /* --------------------------
    Load form definition
@@ -56,6 +57,10 @@ async function loadForm(formId = null) {
     
     FORM_ID = formIdToLoad;
     titleEl.textContent = formDef.name || formIdToLoad;
+    
+    // Load baseline submission before rendering form (so scripts can access it)
+    await loadBaselineSubmission(formIdToLoad);
+    
     renderFormHtml(formDef.html);
     
     // Reset result display
@@ -96,7 +101,54 @@ function updateActiveFormInList(formId) {
   });
 }
 
+async function loadBaselineSubmission(formId) {
+  try {
+    const res = await fetch(`${API_BASE}/${formId}/submissions`);
+    if (!res.ok) {
+      baselineSubmission = null;
+      window.baselineSubmission = null;
+      // Also make it available without window prefix in global scope
+      if (typeof globalThis !== 'undefined') {
+        globalThis.baselineSubmission = null;
+      }
+      return;
+    }
+    const submissions = await res.json();
+    // Find the baseline submission
+    const baseline = submissions.find(s => s.baseline === true);
+    baselineSubmission = baseline || null;
+    // Make it available globally for form scripts (accessible as baselineSubmission or window.baselineSubmission)
+    window.baselineSubmission = baselineSubmission;
+    if (typeof globalThis !== 'undefined') {
+      globalThis.baselineSubmission = baselineSubmission;
+    }
+    console.log('Baseline submission loaded:', baselineSubmission);
+  } catch (error) {
+    console.error('Error loading baseline submission:', error);
+    baselineSubmission = null;
+    window.baselineSubmission = null;
+    if (typeof globalThis !== 'undefined') {
+      globalThis.baselineSubmission = null;
+    }
+  }
+}
+
 function renderFormHtml(html) {
+  // Ensure test functions are available globally BEFORE inserting HTML
+  // so inline handlers can find them
+  if (typeof hello !== 'undefined') {
+    window.hello = hello;
+  }
+  if (typeof test_input_pass_warning_fail !== 'undefined') {
+    window.test_input_pass_warning_fail = test_input_pass_warning_fail;
+  }
+  if (typeof eval_form !== 'undefined') {
+    window.eval_form = eval_form;
+  }
+  
+  // Ensure baseline is available globally
+  window.baselineSubmission = baselineSubmission;
+  
   fieldsEl.innerHTML = html;
 
   // Show/hide result section based on whether form has rules
@@ -117,6 +169,12 @@ function renderFormHtml(html) {
 
   // Set submit button state on initial render
   updateSubmitEnabled();
+  
+  // Call eval_form to run data-script on all controls (e.g., to set baseline values)
+  if (typeof eval_form === 'function') {
+    console.log('renderFromHtml - eval_form', eval_form);
+    eval_form(null);
+  }
 }
 
 /* --------------------------
@@ -267,6 +325,8 @@ function renderSubmissions(submissions) {
       const result = (s.result || '').toUpperCase();
       const id = s.id || '';
       const hasHtml = !!s.formHtml;
+      const isBaseline = s.baseline || false;
+      const comments = (s.comments || '').trim();
       const resultBadge =
         result === 'PASS' ? 'bg-success' :
         result === 'WARNING' ? 'bg-warning text-dark' :
@@ -276,6 +336,10 @@ function renderSubmissions(submissions) {
         <tr data-id="${id}">
           <td class="text-nowrap">${date}</td>
           <td><span class="badge ${resultBadge}">${result || '—'}</span></td>
+          <td>${comments ? `<span class="text-muted" title="${comments.replace(/"/g, '&quot;')}">${comments.length > 50 ? comments.substring(0, 50) + '...' : comments}</span>` : '<span class="text-muted">—</span>'}</td>
+          <td class="text-center">
+            <input type="checkbox" class="form-check-input baseline-checkbox" data-id="${id}" ${isBaseline ? 'checked' : ''}>
+          </td>
           <td class="text-nowrap">
             ${hasHtml ? `<button class="btn btn-sm btn-outline-primary view-submission-btn" data-id="${id}">View Form</button>` : ''}
             <button class="btn btn-sm btn-outline-danger delete-submission-btn" data-id="${id}">Delete</button>
@@ -291,6 +355,8 @@ function renderSubmissions(submissions) {
             <tr>
               <th scope="col">Date/Time</th>
               <th scope="col">Result</th>
+              <th scope="col">Comments</th>
+              <th scope="col" class="text-center">Baseline</th>
               <th scope="col">Commands</th>
             </tr>
           </thead>
@@ -306,6 +372,7 @@ function renderSubmissions(submissions) {
       const result = (s.result || '').toUpperCase();
       const id = s.id || '';
       const hasHtml = !!s.formHtml;
+      const comments = (s.comments || '').trim();
       return `
         <div class="card mb-2">
           <div class="card-body">
@@ -316,6 +383,7 @@ function renderSubmissions(submissions) {
               </div>
               <div class="badge ${result === 'PASS' ? 'bg-success' : result === 'WARNING' ? 'bg-warning text-dark' : 'bg-danger'}">${result || '—'}</div>
             </div>
+            ${comments ? `<div class="mt-2 mb-2 p-2 bg-light rounded"><strong>Comments:</strong><br><span style="white-space: pre-wrap;">${comments.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>` : ''}
             <pre class="mt-2 mb-3" style="white-space: pre-wrap; word-break: break-word;">${JSON.stringify(s.values, null, 2)}</pre>
             <div class="d-flex justify-content-end gap-2">
               ${hasHtml ? `<button class="btn btn-sm btn-outline-primary view-submission-btn" data-id="${id}">View Form</button>` : ''}
@@ -355,6 +423,32 @@ function renderSubmissions(submissions) {
       const submission = submissions.find(s => (s.id || '') === submissionId);
       if (!submission || !submission.formHtml) return;
       showSubmissionPreview(submission.formHtml, submission.values, submission);
+    });
+  });
+
+  // Attach baseline checkbox handlers
+  submissionsListEl.querySelectorAll('.baseline-checkbox').forEach((checkbox) => {
+    checkbox.addEventListener('change', async (e) => {
+      const submissionId = checkbox.getAttribute('data-id');
+      const isChecked = checkbox.checked;
+      if (!submissionId || !FORM_ID) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/${FORM_ID}/submissions/${submissionId}/baseline?is_baseline=${isChecked}`, {
+          method: 'PUT'
+        });
+        if (!res.ok) {
+          // Revert checkbox if request failed
+          checkbox.checked = !isChecked;
+          throw new Error(`Failed to set baseline: ${res.statusText}`);
+        }
+        // Reload baseline submission so it's available for form scripts
+        await loadBaselineSubmission(FORM_ID);
+        // Reload submissions to reflect the change (uncheck others if one was checked)
+        loadSubmissions(FORM_ID);
+      } catch (err) {
+        alert(err.message);
+      }
     });
   });
 }
@@ -397,6 +491,8 @@ function showSubmissionPreview(html, values, submission = {}) {
     resultText === 'WARNING' ? 'bg-warning text-dark' :
     resultText === 'FAIL' ? 'bg-danger' : 'bg-secondary';
 
+  const comments = (submission.comments || '').trim();
+  const scriptSrc = new URL('test_functions.js', window.location.href).href;
   const fullHtml = `<!DOCTYPE html>
   <html><head>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
@@ -407,8 +503,10 @@ function showSubmissionPreview(html, values, submission = {}) {
         <div class="h6 mb-0">Submission Result</div>
         <span class="badge ${resultBadge}">${resultText || '—'}</span>
       </div>
+      ${comments ? `<div class="alert alert-info mb-3"><strong>Comments:</strong><br><span style="white-space: pre-wrap;">${comments.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</span></div>` : ''}
       ${html}
     </div>
+    <script src="${scriptSrc}"></script>
   </body></html>`;
 
   doc.open();
@@ -445,25 +543,28 @@ function showSubmissionPreview(html, values, submission = {}) {
     }
   });
 
-  // add plot buttons next to number inputs
+  // add Trend buttons right next to number inputs
   const numberInputs = doc.querySelectorAll('input[type="number"]');
   numberInputs.forEach((el) => {
-    const btn = doc.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn btn-sm btn-outline-secondary ms-2';
-    btn.textContent = 'Trend';
-    btn.addEventListener('click', () => {
-      const fieldKey = el.name || el.id || 'value';
+    const fieldKey = el.name || el.id || 'value';
+    
+    // Create Trend badge button
+    const trendBtn = doc.createElement('button');
+    trendBtn.type = 'button';
+    trendBtn.className = 'badge bg-info text-dark border-0';
+    trendBtn.style.cursor = 'pointer';
+    trendBtn.style.marginLeft = '0';
+    trendBtn.textContent = 'Trend';
+    trendBtn.title = 'View trend chart';
+    trendBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       if (window.showPlotModalFromIframe) {
         window.showPlotModalFromIframe(fieldKey);
       }
     });
-    const parent = el.parentElement;
-    if (parent) {
-      parent.appendChild(btn);
-    } else {
-      el.insertAdjacentElement('afterend', btn);
-    }
+    
+    // Insert right after the input element
+    el.insertAdjacentElement('afterend', trendBtn);
   });
 
   if (submissionPreviewModal) {
@@ -702,6 +803,8 @@ formEl.addEventListener("submit", async (e) => {
   const values = getFormValues();
   const metadata = getControlMetadata();
   const result = getResultForSubmit();
+  const commentsEl = document.getElementById('submission-comments');
+  const comments = commentsEl ? commentsEl.value.trim() : '';
 
   if (!FORM_ID) {
     alert('No form selected. Please select a form from the list.');
@@ -711,13 +814,19 @@ formEl.addEventListener("submit", async (e) => {
   const res = await fetch(`${API_BASE}/${FORM_ID}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ values, metadata, result })
+    body: JSON.stringify({ values, metadata, result, comments })
   });
 
   const data = await res.json();
   serverResponseEl.textContent = JSON.stringify(data, null, 2);
 
   setLiveResult((data.result || '').toUpperCase());
+  
+  // Clear comments field after successful submission
+  if (commentsEl) {
+    commentsEl.value = '';
+  }
+  
   // Refresh submissions list after submit
   loadSubmissions(FORM_ID);
 });

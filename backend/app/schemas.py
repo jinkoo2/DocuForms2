@@ -19,6 +19,7 @@ class SubmissionIn(BaseModel):
     values: Dict[str, Any]
     metadata: Dict[str, Any] = Field(default_factory=dict)
     result: str
+    comments: str = ""
 
 
 class SubmissionOut(BaseModel):
@@ -28,3 +29,4 @@ class SubmissionOut(BaseModel):
     result: str
     formHtml: str
     submittedAt: datetime
+    comments: str = ""

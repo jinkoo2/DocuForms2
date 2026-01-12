@@ -54,10 +54,10 @@
     </div>
     
     <!-- Main Panel -->
-    <div class="col-md-9 col-lg-10 d-flex flex-column p-0">
-      <div class="row flex-grow-1 m-0">
+    <div class="col-md-9 col-lg-10 d-flex flex-column p-0" style="position: relative;">
+      <div id="panels-container" class="d-flex flex-grow-1" style="overflow: hidden;">
         <!-- Source Code Panel -->
-        <div class="col-6 d-flex flex-column border-end p-0">
+        <div id="source-panel" class="d-flex flex-column p-0" style="width: 50%; flex-shrink: 0;">
           <div class="p-2 border-bottom bg-white d-flex justify-content-between align-items-center">
             <h6 class="mb-0">Source Code</h6>
             <button id="format-document" class="btn btn-sm btn-primary" title="Format HTML">✨ Format Document</button>
@@ -65,8 +65,11 @@
           <textarea id="source-editor" class="flex-grow-1 border-0 p-3"></textarea>
         </div>
         
+        <!-- Resizable Divider -->
+        <div id="resizer" class="border-end" style="width: 4px; background-color: #dee2e6; cursor: col-resize; flex-shrink: 0; user-select: none; z-index: 10;"></div>
+        
         <!-- Preview Panel -->
-        <div class="col-6 d-flex flex-column p-0">
+        <div id="preview-panel" class="d-flex flex-column p-0" style="flex: 1; min-width: 0;">
           <div class="p-2 border-bottom bg-white d-flex justify-content-between align-items-center">
             <h6 class="mb-0">Preview</h6>
             <button id="refresh-preview" class="btn btn-sm btn-outline-secondary" title="Refresh preview">🔄</button>

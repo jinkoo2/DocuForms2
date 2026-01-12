@@ -1,0 +1,55 @@
+<div class="mb-3">
+    <div class="input-group mb-1">
+        <span class="input-group-text">6X</span>
+        <input id="output_6x" type="number" class="form-control" name="output_6x" oninput="eval_form(this)">
+
+        <span class="input-group-text">Baseline</span>
+        <input id="output_6x_baseline" type="number" class="form-control" name="output_6x_baseline"
+            oninput="eval_form(this)" data-script="
+          const base = baseline_values &amp;&amp; baseline_values();
+          if (base &amp;&amp; base['output_6x'] !== undefined) {
+            _eid('output_6x_baseline').value = base['output_6x'];
+          }
+        ">
+
+        <span class="input-group-text">Error (%)</span>
+
+        <input id="output_6x_error" type="number" class="form-control" readonly="" data-pass-range="-2:2"
+            data-result="PASS" data-script="
+      let b = null;
+  
+      // 1) Try baseline_values() first
+      if (typeof baseline_values === 'function') {
+        const base = baseline_values();
+        if (base &amp;&amp; base['output_6x'] !== undefined) {
+          b = parseFloat(base['output_6x']);
+        }
+      }
+  
+      // 2) Fallback to user-entered baseline field
+      if (b === null || isNaN(b)) {
+        b = parseFloat(_eid('output_6x_baseline').value);
+      }
+  
+      const a = parseFloat(_eid('output_6x').value);
+  
+      // 3) Validate inputs
+      if (!isNaN(a) &amp;&amp; !isNaN(b) &amp;&amp; b !== 0) {
+        const err = (a - b) / b * 100.0;
+        _eid('output_6x_error').value = err.toFixed(2);
+      } else {
+        // No valid baseline yet → default PASS
+        _eid('output_6x_error').dataset.result = 'PASS';
+        _eid('output_6x_error').value = '';
+      }
+    " name="output_6x_error">
+
+
+
+        <span class="input-group-text fw-bold"></span>
+    </div>
+
+    <div class="form-text ms-3">
+        tolerance: ±2%
+    </div>
+</div>

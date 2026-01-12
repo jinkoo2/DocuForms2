@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime
 from bson import ObjectId
 
@@ -21,6 +21,7 @@ async def submit_form(form_id: str, submission: SubmissionIn):
         "metadata": submission.metadata,
         "result": submission.result,
         "formHtml": form.get("html", ""),
+        "comments": submission.comments or "",
         "submittedAt": datetime.utcnow()
     }
 
@@ -45,6 +46,8 @@ async def list_submissions(form_id: str):
             "result": doc.get("result"),
             "submittedAt": doc.get("submittedAt"),
             "formHtml": doc.get("formHtml", ""),
+            "baseline": doc.get("baseline", False),
+            "comments": doc.get("comments", ""),
         })
     return submissions
 
@@ -61,3 +64,37 @@ async def delete_submission(form_id: str, submission_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Submission not found")
     return {"status": "ok", "deletedId": submission_id}
+
+
+@router.put("/{form_id}/submissions/{submission_id}/baseline")
+async def set_baseline(form_id: str, submission_id: str, is_baseline: bool = Query(True)):
+    """Set or unset a submission as baseline. Only one baseline per form."""
+    try:
+        oid = ObjectId(submission_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid submission id")
+
+    # Verify submission exists and belongs to this form
+    submission = await submissions_collection.find_one({"_id": oid, "formId": form_id})
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    if is_baseline:
+        # Unset all other baselines for this form
+        await submissions_collection.update_many(
+            {"formId": form_id, "_id": {"$ne": oid}},
+            {"$set": {"baseline": False}}
+        )
+        # Set this one as baseline
+        await submissions_collection.update_one(
+            {"_id": oid},
+            {"$set": {"baseline": True}}
+        )
+    else:
+        # Just unset this one
+        await submissions_collection.update_one(
+            {"_id": oid},
+            {"$set": {"baseline": False}}
+        )
+
+    return {"status": "ok", "submissionId": submission_id, "baseline": is_baseline}
