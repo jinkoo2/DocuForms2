@@ -6,7 +6,8 @@ from app.config import settings
 router = APIRouter(prefix="/api", tags=["uploads"])
 
 # Create uploads directory if it doesn't exist
-UPLOAD_DIR = Path("uploads")
+# Note: Directory is named _uploads but endpoint is still /uploads
+UPLOAD_DIR = Path("_uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 

@@ -22,9 +22,10 @@ app.include_router(submissions_router)
 app.include_router(uploads_router)
 
 # Mount static files for uploads directory
-uploads_dir = Path("uploads")
+# Note: Directory is named _uploads but endpoint is still /uploads
+uploads_dir = Path("_uploads")
 uploads_dir.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory="_uploads"), name="uploads")
 
 
 @app.get("/health")

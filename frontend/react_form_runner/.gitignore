@@ -1,7 +1,35 @@
+# Dependencies
 node_modules
+
+# Build files
 dist
-.DS_Store
-*.log
+build
+*.tsbuildinfo
+
+# Environment files
 .env
 .env.local
 .env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
+
+# Files and folders starting with underscore (at any level)
+_*
+**/_*
