@@ -25,7 +25,12 @@ Create `/home/jk/projects/DocuForms2/backend/.env`:
 ```bash
 MONGO_URI="mongodb://root:example@localhost:27017/?authSource=admin"
 DB_NAME="docuforms2"
+MAX_UPLOAD_SIZE=1073741824
 ```
+Note: `MAX_UPLOAD_SIZE` is in bytes. Default is 1GB (1073741824 bytes). For example:
+- 1GB = 1073741824
+- 2GB = 2147483648
+- 500MB = 524288000
 
 ### 4) Start infrastructure (MongoDB + mongo-express)
 ```bash

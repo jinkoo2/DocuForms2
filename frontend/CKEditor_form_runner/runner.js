@@ -1,4 +1,6 @@
 const API_BASE = "http://localhost:8001/api/forms";
+// Extract base API URL for uploads (remove /forms suffix)
+const UPLOAD_API_BASE = API_BASE.replace('/forms', '');
 
 // Get form ID from URL parameter or use default
 const urlParams = new URLSearchParams(window.location.search);
@@ -148,6 +150,22 @@ function renderFormHtml(html) {
   
   // Ensure baseline is available globally
   window.baselineSubmission = baselineSubmission;
+  
+  // Fix upload URLs in HTML before inserting - replace relative /api/upload with full URL
+  // This handles both single and double quotes in onchange handlers and fetch calls
+  html = html.replace(/'\/api\/upload'/g, `'${UPLOAD_API_BASE}/upload'`);
+  html = html.replace(/"\/api\/upload"/g, `"${UPLOAD_API_BASE}/upload"`);
+  // Also handle cases where it might be in template literals or without quotes in fetch
+  html = html.replace(/fetch\(['"]\/api\/upload['"]/g, `fetch('${UPLOAD_API_BASE}/upload'`);
+  
+  // Fix download links - replace relative /uploads/ with full backend URL
+  // Extract base URL (http://localhost:8001) from UPLOAD_API_BASE
+  const BACKEND_BASE = UPLOAD_API_BASE.replace('/api', '');
+  // Replace href="/uploads/..." with full backend URL (handle both single and double quotes)
+  html = html.replace(/href=["']\/uploads\//g, (match) => {
+    const quote = match.includes('"') ? '"' : "'";
+    return `href=${quote}${BACKEND_BASE}/uploads/`;
+  });
   
   fieldsEl.innerHTML = html;
 
@@ -516,6 +534,13 @@ function showSubmissionPreview(html, values, submission = {}) {
   // populate values and set readonly/disabled, and show per-field result badges
   const controls = doc.querySelectorAll('input, select, textarea');
   controls.forEach((el) => {
+    // Skip file inputs - they can't have values set programmatically
+    if (el.type === 'file') {
+      // Hide file inputs in preview
+      el.style.display = 'none';
+      return;
+    }
+    
     const key = el.name || el.id;
     if (values && key && key in values) {
       el.value = values[key];
@@ -539,6 +564,31 @@ function showSubmissionPreview(html, values, submission = {}) {
         parent.appendChild(badge);
       } else {
         el.insertAdjacentElement('afterend', badge);
+      }
+    }
+  });
+
+  // Handle file inputs: hide them and load image previews from metadata
+  const fileInputs = doc.querySelectorAll('input[type="file"]');
+  fileInputs.forEach((fileInput) => {
+    // Hide file input
+    fileInput.style.display = 'none';
+    
+    // Handle image previews using data attributes and metadata
+    const fileType = fileInput.getAttribute('data-file-type');
+    const targetElementId = fileInput.getAttribute('data-file-target-element-id');
+    const inputName = fileInput.name || fileInput.id;
+    
+    if (fileType === 'image' && targetElementId && inputName && submission.metadata) {
+      // Get fileData from metadata
+      const fieldMeta = submission.metadata[inputName];
+      if (fieldMeta && fieldMeta.fileData && typeof fieldMeta.fileData === 'string' && fieldMeta.fileData.startsWith('data:image')) {
+        // Find the target image element and set its src
+        const targetImg = doc.getElementById(targetElementId);
+        if (targetImg) {
+          targetImg.src = fieldMeta.fileData;
+          targetImg.style.display = 'block';
+        }
       }
     }
   });
