@@ -33,7 +33,10 @@ export function getFormValues(formElement) {
     
     // Use id as primary key, fall back to name if id is not available
     const key = el.id || el.name;
-    if (key) {
+    
+    // Exclude submission-comments from values - it's saved separately in the comments field
+    // Also exclude any field that starts with 'submission-' to be safe
+    if (key && key !== 'submission-comments' && !key.startsWith('submission-')) {
       values[key] = el.value;
     }
   });
@@ -61,9 +64,16 @@ export function getControlMetadata(formElement) {
   const controls = formElement.querySelectorAll('input, select, textarea');
   
   controls.forEach((el) => {
+    // Skip the submission-comments element by id as well
+    if (el.id === 'submission-comments') return;
+    
     // Use id as primary key, fall back to name if id is not available
     const key = el.id || el.getAttribute('name');
     if (!key) return;
+    
+    // Exclude submission-comments from metadata - it's saved separately in the comments field
+    // Also exclude any field that starts with 'submission-' to be safe
+    if (key === 'submission-comments' || key.startsWith('submission-')) return;
     
     const datasetEntries = Object.entries(el.dataset || {});
     if (datasetEntries.length === 0) {
