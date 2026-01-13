@@ -1,13 +1,15 @@
-body {
+html, body {
   font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .runner-container {
   display: flex;
   flex-direction: row;
-  height: 100vh;
+  height: calc(100vh - 56px); /* Subtract navbar height */
   overflow: hidden;
   width: 100%;
 }
@@ -23,6 +25,8 @@ body {
   overflow: hidden;
   flex-shrink: 0;
   order: 1;
+  height: 100%;
+  min-height: 0; /* Important for flex children to allow scrolling */
 }
 
 .form-list-header {
@@ -32,6 +36,8 @@ body {
   justify-content: space-between;
   align-items: center;
   background: white;
+  flex-shrink: 0; /* Header: fixed size */
+  flex-grow: 0;
 }
 
 .form-list-header h3 {
@@ -54,8 +60,10 @@ body {
 }
 
 .form-list {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 0; /* Take remaining space, allow shrinking, base size 0 */
+  min-height: 0; /* Critical: allows flex child to shrink below content size */
+  overflow-y: auto !important; /* Force vertical scrolling */
+  overflow-x: hidden;
   padding: 10px;
 }
 
@@ -156,4 +164,63 @@ pre {
   margin-top: 20px;
   background: #f5f5f5;
   padding: 10px;
+}
+
+/* Form Builder - EditorSidebar scrolling */
+.col-md-3.col-lg-2.d-flex.flex-column {
+  min-height: 0; /* Important for flex children to allow scrolling */
+  height: 100%;
+  overflow: hidden; /* Prevent panel itself from scrolling */
+  display: flex !important; /* Ensure flex layout */
+  flex-direction: column !important; /* Ensure column direction */
+}
+
+/* Header (Forms title) - fixed size, no shrinking */
+.col-md-3.col-lg-2.d-flex.flex-column > div:first-of-type {
+  flex-shrink: 0 !important; /* Header: fixed size */
+  flex-grow: 0 !important;
+}
+
+/* Footer (Form Elements) - fixed size, no shrinking */
+.col-md-3.col-lg-2.d-flex.flex-column > div:last-of-type {
+  flex-shrink: 0 !important; /* Footer: fixed size */
+  flex-grow: 0 !important;
+}
+
+/* Form list in EditorSidebar - should scroll, takes remaining space */
+.col-md-3.col-lg-2.d-flex.flex-column .flex-grow-1.overflow-auto {
+  flex: 1 1 0 !important; /* Take remaining space, allow shrinking, base size 0 */
+  min-height: 100px !important; /* Minimum height to ensure visibility */
+  overflow-y: auto !important; /* Force vertical scrolling */
+  overflow-x: hidden !important;
+  display: block !important; /* Ensure it's a block element */
+  position: relative !important; /* Ensure it's positioned */
+}
+
+/* Ensure row has proper height constraints */
+.row.flex-grow-1 {
+  min-height: 0; /* Important for flex children to allow scrolling */
+  height: 100%; /* Ensure row takes full height */
+  display: flex !important; /* Ensure flex layout works */
+  overflow: hidden; /* Prevent row from scrolling */
+}
+
+/* Ensure columns in the row get proper height */
+.row.flex-grow-1 > [class*="col-"] {
+  height: 100%; /* Columns should take full row height */
+  min-height: 0; /* Allow flex children to shrink */
+}
+
+/* Ensure container-fluid in Form Builder takes full height */
+.container-fluid.h-100.d-flex.flex-column {
+  min-height: 0; /* Important for flex children */
+  overflow: hidden; /* Prevent container from scrolling */
+  height: calc(100vh - 56px) !important; /* Explicit height accounting for navbar */
+}
+
+/* Ensure the row inside container-fluid takes remaining space after SaveBar */
+.container-fluid.h-100.d-flex.flex-column > .row.flex-grow-1 {
+  flex: 1 1 0; /* Take remaining space after SaveBar, base size 0 */
+  min-height: 0;
+  overflow: hidden; /* Prevent row from scrolling */
 }

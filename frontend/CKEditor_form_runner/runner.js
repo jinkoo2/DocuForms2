@@ -305,7 +305,11 @@ function compare(left, op, right) {
 function getFormValues() {
   const values = {};
   new FormData(formEl).forEach((v, k) => {
-    values[k] = v;
+    // Exclude submission-comments from values - it's saved separately in the comments field
+    // Also exclude any field that starts with 'submission-' to be safe
+    if (k !== 'submission-comments' && !k.startsWith('submission-')) {
+      values[k] = v;
+    }
   });
   return values;
 }
@@ -799,11 +803,19 @@ function getResultForSubmit() {
 --------------------------- */
 function getControlMetadata() {
   const meta = {};
-  const controls = formEl.querySelectorAll('input, select, textarea');
+  // Exclude the submission-comments textarea from the query
+  const controls = formEl.querySelectorAll('input:not(#submission-comments), select, textarea:not(#submission-comments)');
 
   controls.forEach((el) => {
+    // Skip the submission-comments element by id as well
+    if (el.id === 'submission-comments') return;
+    
     const name = el.getAttribute('name') || el.id;
     if (!name) return;
+    
+    // Exclude submission-comments from metadata - it's saved separately in the comments field
+    // Also exclude any field that starts with 'submission-' to be safe
+    if (name === 'submission-comments' || name.startsWith('submission-')) return;
 
     const datasetEntries = Object.entries(el.dataset || {});
     if (datasetEntries.length === 0) {

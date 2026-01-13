@@ -3,8 +3,12 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
+}
+
+.container-fluid.h-100 {
+  height: calc(100vh - 56px) !important; /* Subtract navbar height */
 }
 
 /* Form list styles */
@@ -116,6 +120,7 @@ html, body {
 /* Override Bootstrap container-fluid padding for full-height layout */
 .container-fluid.h-100 {
   padding: 0 !important;
+  min-height: 0; /* Important for flex children to allow scrolling */
 }
 
 /* Ensure Bootstrap buttons display correctly */
@@ -124,9 +129,11 @@ html, body {
 }
 
 /* Ensure Bootstrap grid works properly */
-.row {
+.row.flex-grow-1 {
   margin-left: 0;
   margin-right: 0;
+  min-height: 0; /* Important for flex children to allow scrolling */
+  height: 100%; /* Ensure row takes full height */
 }
 
 .row > * {
@@ -141,4 +148,31 @@ html, body {
 
 .overflow-auto {
   overflow: auto;
+}
+
+/* Left panel form list scrolling */
+.col-md-3.col-lg-2.d-flex.flex-column {
+  min-height: 0; /* Important for flex children to allow scrolling */
+  height: 100%;
+  overflow: hidden; /* Prevent panel itself from scrolling */
+}
+
+/* Header (Forms title) - fixed size, no shrinking */
+.col-md-3.col-lg-2.d-flex.flex-column > div:first-of-type {
+  flex-shrink: 0; /* Header: fixed size */
+  flex-grow: 0;
+}
+
+/* Footer (Form Elements) - fixed size, no shrinking */
+.col-md-3.col-lg-2.d-flex.flex-column > div:last-of-type {
+  flex-shrink: 0; /* Footer: fixed size */
+  flex-grow: 0;
+}
+
+/* Form list - should scroll, takes remaining space */
+#form-list {
+  flex: 1 1 0; /* Take remaining space, allow shrinking, base size 0 */
+  min-height: 0; /* Critical: allows flex child to shrink below content size */
+  overflow-y: auto !important; /* Force vertical scrolling */
+  overflow-x: hidden;
 }
