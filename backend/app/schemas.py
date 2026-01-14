@@ -20,6 +20,7 @@ class SubmissionIn(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
     result: str
     comments: str = ""
+    submissionHtml: str = ""
 
 
 class SubmissionOut(BaseModel):

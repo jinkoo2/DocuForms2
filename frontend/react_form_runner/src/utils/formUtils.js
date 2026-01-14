@@ -127,3 +127,299 @@ export function getResultForSubmit(formElement, liveResult) {
   
   return '';
 }
+
+export function generateSubmissionHtml(formHtml, values, metadata) {
+  if (!formHtml) return '';
+  
+  try {
+    // Create a temporary DOM element to manipulate the HTML
+    const tempDiv = document.createElement('div');
+    
+    // If HTML includes body tag, extract body content; otherwise use as-is
+    let htmlContent = formHtml;
+    if (htmlContent.includes('<body')) {
+      const parser = new DOMParser();
+      const tempDoc = parser.parseFromString(htmlContent, 'text/html');
+      htmlContent = tempDoc.body ? tempDoc.body.innerHTML : htmlContent;
+    }
+    
+    // Set the HTML content to the temp div
+    tempDiv.innerHTML = htmlContent;
+    
+    const container = tempDiv;
+    
+    // Fill in values for all form controls
+    const controls = container.querySelectorAll('input, select, textarea');
+    controls.forEach((el) => {
+      const key = el.id || el.name;
+      if (!key || key === 'submission-comments' || key.startsWith('submission-')) {
+        return;
+      }
+      
+      // Skip file inputs - they can't have values set programmatically
+      if (el.type === 'file') {
+        // Hide file inputs
+        el.style.display = 'none';
+        return;
+      }
+      
+      // Set the value if it exists in the values object
+      if (key in values) {
+        el.value = values[key];
+        // Also set the value attribute to ensure it's preserved in innerHTML
+        el.setAttribute('value', values[key]);
+      }
+      
+      // Make fields readonly/disabled to show they're submitted values
+      el.setAttribute('readonly', 'true');
+      el.setAttribute('disabled', 'true');
+      
+      // Add result badge if present in metadata
+      const fieldMeta = metadata && metadata[key];
+      if (fieldMeta && fieldMeta.result) {
+        const result = String(fieldMeta.result).toUpperCase();
+        const badgeClass =
+          result === 'PASS' ? 'bg-success' :
+          result === 'WARNING' ? 'bg-warning text-dark' :
+          result === 'FAIL' ? 'bg-danger' : 'bg-secondary';
+        
+        const badge = document.createElement('span');
+        badge.className = `badge ${badgeClass} ms-2`;
+        badge.textContent = result;
+        
+        // Insert badge after the input
+        const parent = el.parentElement;
+        if (parent) {
+          parent.appendChild(badge);
+        } else {
+          el.insertAdjacentElement('afterend', badge);
+        }
+      }
+    });
+    
+    // Handle file inputs - show download links for uploaded files
+    const fileInputs = container.querySelectorAll('input[type="file"]');
+    fileInputs.forEach((fileInput) => {
+      const key = fileInput.id || fileInput.name;
+      if (!key) return;
+      
+      // Hide the file input
+      fileInput.style.display = 'none';
+      
+      // Check if we have a value for this file input
+      if (key in values && values[key]) {
+        const value = values[key];
+        const fileType = fileInput.getAttribute('data-file-type');
+        const downloadLinkId = fileInput.getAttribute('data-download-link');
+        const fileListId = fileInput.getAttribute('data-file-list');
+        const isMultiple = fileInput.hasAttribute('multiple');
+        
+        // Handle multi-file uploads (JSON array)
+        if (isMultiple && fileListId) {
+          try {
+            // Parse JSON array string if needed
+            let fileUrls;
+            if (typeof value === 'string') {
+              try {
+                fileUrls = JSON.parse(value);
+              } catch (e) {
+                console.warn('Failed to parse JSON array:', e);
+                fileUrls = [];
+              }
+            } else if (Array.isArray(value)) {
+              fileUrls = value;
+            } else {
+              fileUrls = [];
+            }
+            
+            if (Array.isArray(fileUrls) && fileUrls.length > 0) {
+              const fileListContainer = container.querySelector(`#${fileListId}`);
+              if (fileListContainer) {
+                // Clear existing content
+                fileListContainer.innerHTML = '';
+                
+                // Create a row for each file
+                fileUrls.forEach((fileData) => {
+                  // Handle both old format (string URL) and new format (object with url and originalName)
+                  let fileUrl, filename;
+                  if (typeof fileData === 'string') {
+                    fileUrl = fileData;
+                    filename = fileUrl.split('/').pop();
+                  } else if (fileData && typeof fileData === 'object') {
+                    fileUrl = fileData.url;
+                    filename = fileData.originalName || fileUrl.split('/').pop();
+                  } else {
+                    return;
+                  }
+                  
+                  if (fileUrl) {
+                    const row = document.createElement('div');
+                    row.className = 'upload-row';
+                    
+                    const link = document.createElement('a');
+                    link.href = fileUrl;
+                    link.target = '_blank';
+                    link.textContent = `Download ${filename}`;
+                    link.setAttribute('download', '');
+                    
+                    row.appendChild(link);
+                    fileListContainer.appendChild(row);
+                  }
+                });
+              } else {
+                console.warn(`File list container #${fileListId} not found`);
+              }
+            }
+          } catch (err) {
+            console.error('Error handling multi-file upload:', err, value);
+          }
+        } else {
+          // Handle single file upload
+          // Handle both old format (string URL) and new format (JSON object with url and originalName)
+          let fileUrl, filename;
+          if (typeof value === 'string') {
+            try {
+              // Try to parse as JSON first
+              const fileData = JSON.parse(value);
+              if (typeof fileData === 'object' && fileData.url) {
+                fileUrl = fileData.url;
+                filename = fileData.originalName || fileUrl.split('/').pop();
+              } else {
+                fileUrl = value;
+                filename = fileUrl.split('/').pop();
+              }
+            } catch {
+              // Not JSON, treat as old format (string URL)
+              fileUrl = value;
+              filename = fileUrl.split('/').pop();
+            }
+          } else {
+            fileUrl = value;
+            filename = fileUrl.split('/').pop();
+          }
+          
+          // If it's an image and we have a target element, show the image
+          if (fileType === 'image' && fileUrl && fileUrl.startsWith('data:image')) {
+            const targetElementId = fileInput.getAttribute('data-file-target-element-id');
+            if (targetElementId) {
+              const targetImg = container.querySelector(`#${targetElementId}`);
+              if (targetImg) {
+                targetImg.src = fileUrl;
+                targetImg.style.display = 'block';
+              }
+            }
+          }
+          
+          // Show download link if available
+          if (downloadLinkId && fileUrl) {
+            const downloadLink = container.querySelector(`#${downloadLinkId}`);
+            if (downloadLink) {
+              downloadLink.href = fileUrl;
+              downloadLink.textContent = `Download ${filename}`;
+              downloadLink.style.display = 'inline-block';
+              downloadLink.setAttribute('target', '_blank');
+              // Ensure it has download attribute for proper file download behavior
+              if (!downloadLink.hasAttribute('download')) {
+                downloadLink.setAttribute('download', '');
+              }
+            }
+          }
+        }
+        
+        // Hide delete button if it exists
+        const deleteButtonId = fileInput.getAttribute('data-delete-button');
+        if (deleteButtonId) {
+          const deleteBtn = container.querySelector(`#${deleteButtonId}`);
+          if (deleteBtn) {
+            deleteBtn.style.display = 'none';
+          }
+        }
+      }
+    });
+    
+    // Hide all delete buttons in file upload rows (for multi-file uploads)
+    const allDeleteButtons = container.querySelectorAll('button');
+    allDeleteButtons.forEach((btn) => {
+      const btnText = (btn.textContent || '').toLowerCase().trim();
+      const btnId = btn.id || '';
+      const btnClass = btn.className || '';
+      if (btnText === 'delete' || btnId.includes('delete') || btnClass.includes('delete')) {
+        btn.style.display = 'none';
+      }
+    });
+    
+    // Hide all progress bars (but not download links)
+    const fileInputsForProgress = container.querySelectorAll('input[type="file"]');
+    fileInputsForProgress.forEach((fileInput) => {
+      const progressBarId = fileInput.getAttribute('data-progress-bar');
+      if (progressBarId) {
+        const progressBar = container.querySelector(`#${progressBarId}`);
+        if (progressBar) {
+          progressBar.style.display = 'none';
+          // Hide the parent progress container only if it only contains the progress bar
+          const progressContainer = progressBar.parentElement;
+          if (progressContainer && progressContainer.classList.contains('progress')) {
+            // Only hide if it's a simple progress container (not containing other elements)
+            const hasOtherElements = Array.from(progressContainer.children).some(
+              child => child !== progressBar && child.tagName !== 'SCRIPT'
+            );
+            if (!hasOtherElements) {
+              progressContainer.style.display = 'none';
+            }
+          }
+        }
+      }
+    });
+    
+    // Hide all <progress> elements (for multi-file uploads)
+    const progressElements = container.querySelectorAll('progress');
+    progressElements.forEach((progress) => {
+      progress.style.display = 'none';
+    });
+    
+    // Hide progress bar divs (class "progress-bar")
+    const progressBarDivs = container.querySelectorAll('.progress-bar, [class*="progress-bar"]');
+    progressBarDivs.forEach((bar) => {
+      bar.style.display = 'none';
+    });
+    
+    // Hide empty progress containers (divs with class "progress" that only contain progress bars)
+    const progressContainers = container.querySelectorAll('.progress');
+    progressContainers.forEach((progressContainer) => {
+      // Only hide if it only contains progress bars and no other meaningful content
+      const children = Array.from(progressContainer.children);
+      const hasNonProgressContent = children.some(
+        child => !child.classList.contains('progress-bar') && 
+                 child.tagName !== 'SCRIPT' &&
+                 !(child.tagName === 'PROGRESS')
+      );
+      if (!hasNonProgressContent) {
+        progressContainer.style.display = 'none';
+      }
+    });
+    
+    // Return the HTML string from the container
+    let result = container.innerHTML;
+    
+    // Debug: log container state
+    if (!result || result.trim() === '') {
+      console.warn('generateSubmissionHtml: container.innerHTML was empty', {
+        containerChildren: container.children.length,
+        htmlContent: htmlContent.substring(0, 200)
+      });
+      // If innerHTML is empty, try to get the HTML differently
+      result = htmlContent;
+    }
+    
+    // If still empty, return the original formHtml
+    if (!result || result.trim() === '') {
+      console.warn('generateSubmissionHtml: result is still empty, returning original formHtml');
+      return formHtml;
+    }
+    
+    return result;
+  } catch (err) {
+    console.error('Error generating submission HTML:', err, formHtml);
+    return formHtml; // Return original HTML on error
+  }
+}

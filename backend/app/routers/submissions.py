@@ -21,6 +21,7 @@ async def submit_form(form_id: str, submission: SubmissionIn):
         "metadata": submission.metadata,
         "result": submission.result,
         "formHtml": form.get("html", ""),
+        "submissionHtml": submission.submissionHtml or "",
         "comments": submission.comments or "",
         "submittedAt": datetime.utcnow()
     }
@@ -46,6 +47,7 @@ async def list_submissions(form_id: str):
             "result": doc.get("result"),
             "submittedAt": doc.get("submittedAt"),
             "formHtml": doc.get("formHtml", ""),
+            "submissionHtml": doc.get("submissionHtml", ""),
             "baseline": doc.get("baseline", False),
             "comments": doc.get("comments", ""),
         })

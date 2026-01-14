@@ -200,6 +200,353 @@ function test_input_pass_warning_fail(input) {
   }
 }
 
+// File upload functions with progress bars
+
+// Upload with XMLHttpRequest (required for progress tracking)
+function uploadFileWithProgress(file, hidden, link, deleteBtn, progressBar) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const serverUrl = get_server_url();
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    xhr.open('POST', `${serverUrl}/api/upload`, true);
+
+    // Progress
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const percent = Math.round((e.loaded / e.total) * 100);
+
+      if (progressBar) {
+        progressBar.style.width = percent + '%';
+        if (progressBar.parentElement) {
+          progressBar.parentElement.style.display = 'block';
+        }
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error('Upload failed'));
+        return;
+      }
+
+      const data = JSON.parse(xhr.responseText);
+      const fileUrl = `${serverUrl}${data.url}`;
+      const originalName = data.originalName || file.name;
+
+      if (hidden) {
+        // Store as JSON object with url and originalName
+        const fileData = JSON.stringify({ url: fileUrl, originalName: originalName });
+        hidden.value = fileData;
+        hidden.setAttribute('value', fileData);
+        // Also store originalName in data attribute for easy access
+        hidden.setAttribute('data-original-name', originalName);
+      }
+
+      if (link) {
+        updateDownloadUI(hidden, link, deleteBtn, originalName);
+      }
+
+      // Finish animation
+      if (progressBar) {
+        setTimeout(() => {
+          if (progressBar.parentElement) {
+            progressBar.parentElement.style.display = 'none';
+          }
+          progressBar.style.width = '0%';
+        }, 400);
+      }
+
+      resolve(data);
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(formData);
+  });
+}
+
+// UI helpers for download/delete
+function updateDownloadUI(hidden, link, deleteBtn, filename = 'file') {
+  if (!hidden || !link) return;
+  
+  const hasFile = hidden.value && hidden.value.trim() !== '';
+
+  if (hasFile) {
+    // Handle both old format (string URL) and new format (JSON object)
+    let fileUrl, displayName;
+    try {
+      const fileData = JSON.parse(hidden.value);
+      if (typeof fileData === 'object' && fileData.url) {
+        fileUrl = fileData.url;
+        displayName = fileData.originalName || filename;
+      } else {
+        fileUrl = hidden.value;
+        displayName = filename;
+      }
+    } catch {
+      // Not JSON, treat as old format (string URL)
+      fileUrl = hidden.value;
+      displayName = filename || hidden.getAttribute('data-original-name') || 'file';
+    }
+    
+    link.href = fileUrl;
+    link.textContent = `Download ${displayName}`;
+    link.style.display = 'inline-block';
+    if (deleteBtn) {
+      deleteBtn.style.display = 'inline-block';
+    }
+  } else {
+    link.style.display = 'none';
+    link.removeAttribute('href');
+    if (deleteBtn) {
+      deleteBtn.style.display = 'none';
+    }
+  }
+}
+
+// Delete file (clears hidden input and UI)
+async function deleteFile(hidden, link, deleteBtn, progressBar) {
+  if (!hidden || !hidden.value) return;
+  if (!confirm('Delete uploaded file?')) return;
+
+  try {
+    const serverUrl = get_server_url();
+    // Extract URL from value (handle both old string format and new JSON format)
+    let fileUrl = hidden.value;
+    try {
+      const fileData = JSON.parse(hidden.value);
+      if (typeof fileData === 'object' && fileData.url) {
+        fileUrl = fileData.url;
+      }
+    } catch {
+      // Not JSON, use value as-is
+    }
+    
+    await fetch(`${serverUrl}/api/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: fileUrl })
+    });
+  } catch {
+    console.warn('Delete API failed, clearing locally');
+  }
+
+  hidden.value = '';
+  hidden.setAttribute('value', '');
+
+  if (progressBar) {
+    progressBar.style.width = '0%';
+    if (progressBar.parentElement) {
+      progressBar.parentElement.style.display = 'none';
+    }
+  }
+
+  updateDownloadUI(hidden, link, deleteBtn);
+}
+
+// Auto-wire single file uploads
+function initAutoFileUploads() {
+  document
+    .querySelectorAll('input[type="file"][data-upload-target]:not([multiple])')
+    .forEach(input => {
+      const hidden = document.getElementById(input.dataset.uploadTarget);
+      const link = document.getElementById(input.dataset.downloadLink);
+      const deleteBtn = input.dataset.deleteButton ? document.getElementById(input.dataset.deleteButton) : null;
+      const progressBar = input.dataset.progressBar ? document.getElementById(input.dataset.progressBar) : null;
+
+      if (!hidden || !link) return;
+
+      input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+
+        try {
+          await uploadFileWithProgress(
+            file,
+            hidden,
+            link,
+            deleteBtn,
+            progressBar
+          );
+        } catch (err) {
+          console.error(err);
+          alert('Upload failed');
+        }
+      });
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', () =>
+          deleteFile(hidden, link, deleteBtn, progressBar)
+        );
+      }
+
+      // Restore on load
+      updateDownloadUI(hidden, link, deleteBtn);
+    });
+}
+
+// Multi-file upload helpers
+function readJsonArray(hidden) {
+  if (!hidden) return [];
+  try {
+    return JSON.parse(hidden.value || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function writeJsonArray(hidden, arr) {
+  if (!hidden) return;
+  hidden.value = JSON.stringify(arr);
+  hidden.setAttribute('value', hidden.value);
+}
+
+function uploadSingleFile(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const serverUrl = get_server_url();
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    xhr.open('POST', `${serverUrl}/api/upload`, true);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error('Upload failed'));
+        return;
+      }
+      const data = JSON.parse(xhr.responseText);
+      resolve({
+        url: `${serverUrl}${data.url}`,
+        originalName: data.originalName || file.name
+      });
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.send(formData);
+  });
+}
+
+function renderFileRow({ url, filename, onDelete }) {
+  const row = document.createElement('div');
+  row.className = 'upload-row';
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.textContent = `Download ${filename}`;
+
+  const progress = document.createElement('progress');
+  progress.max = 100;
+  progress.value = 0;
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.textContent = 'Delete';
+  del.className = 'btn btn-sm btn-outline-danger';
+
+  del.onclick = () => {
+    if (!confirm('Delete file?')) return;
+    onDelete();
+    row.remove();
+  };
+
+  row.append(progress, link, del);
+  return { row, progress };
+}
+
+// Auto-wire multi-file uploads
+function initMultiFileUploads() {
+  document
+    .querySelectorAll('input[type="file"][multiple][data-upload-target]')
+    .forEach(input => {
+      const hidden = document.getElementById(input.dataset.uploadTarget);
+      const list = document.getElementById(input.dataset.fileList);
+      if (!hidden || !list) return;
+
+      // Restore existing file data (edit mode)
+      readJsonArray(hidden).forEach(fileData => {
+        // Handle both old format (string URL) and new format (object with url and originalName)
+        let url, filename;
+        if (typeof fileData === 'string') {
+          url = fileData;
+          filename = url.split('/').pop();
+        } else {
+          url = fileData.url;
+          filename = fileData.originalName || url.split('/').pop();
+        }
+        const { row } = renderFileRow({
+          url,
+          filename,
+          onDelete: () => {
+            const arr = readJsonArray(hidden).filter(f => {
+              const fUrl = typeof f === 'string' ? f : f.url;
+              return fUrl !== url;
+            });
+            writeJsonArray(hidden, arr);
+          }
+        });
+        list.appendChild(row);
+      });
+
+      // Handle new uploads
+      input.addEventListener('change', async () => {
+        const files = Array.from(input.files || []);
+        input.value = ''; // allow re-select same file
+
+        for (const file of files) {
+          const { row, progress } = renderFileRow({
+            url: '#',
+            filename: file.name,
+            onDelete: () => {}
+          });
+
+          list.appendChild(row);
+
+          try {
+            const fileData = await uploadSingleFile(file, p => {
+              progress.value = p;
+            });
+
+            const arr = readJsonArray(hidden);
+            arr.push(fileData);
+            writeJsonArray(hidden, arr);
+
+            row.querySelector('a').href = fileData.url;
+            row.querySelector('a').textContent = `Download ${fileData.originalName}`;
+            progress.remove();
+
+            row.querySelector('button').onclick = () => {
+              if (!confirm('Delete file?')) return;
+              writeJsonArray(
+                hidden,
+                readJsonArray(hidden).filter(f => {
+                  const fUrl = typeof f === 'string' ? f : f.url;
+                  return fUrl !== fileData.url;
+                })
+              );
+              row.remove();
+            };
+
+          } catch (err) {
+            console.error(err);
+            row.remove();
+            alert(`Failed to upload ${file.name}`);
+          }
+        }
+      });
+    });
+}
+
 // Make functions available globally
 if (typeof window !== 'undefined') {
   window._eid = _eid;
@@ -212,6 +559,26 @@ if (typeof window !== 'undefined') {
   window.run_control_script = run_control_script;
   window.test_input_pass_warning_fail = test_input_pass_warning_fail;
   window.get_server_url = get_server_url;
+  window.uploadFileWithProgress = uploadFileWithProgress;
+  window.updateDownloadUI = updateDownloadUI;
+  window.deleteFile = deleteFile;
+  window.initAutoFileUploads = initAutoFileUploads;
+  window.readJsonArray = readJsonArray;
+  window.writeJsonArray = writeJsonArray;
+  window.uploadSingleFile = uploadSingleFile;
+  window.renderFileRow = renderFileRow;
+  window.initMultiFileUploads = initMultiFileUploads;
+  
+  // Auto-initialize on DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initAutoFileUploads();
+      initMultiFileUploads();
+    });
+  } else {
+    initAutoFileUploads();
+    initMultiFileUploads();
+  }
 }
 
 export {
@@ -224,5 +591,14 @@ export {
   eval_form,
   run_control_script,
   test_input_pass_warning_fail,
-  get_server_url
+  get_server_url,
+  uploadFileWithProgress,
+  updateDownloadUI,
+  deleteFile,
+  initAutoFileUploads,
+  readJsonArray,
+  writeJsonArray,
+  uploadSingleFile,
+  renderFileRow,
+  initMultiFileUploads
 };

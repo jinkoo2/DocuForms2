@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchForm, submitForm, fetchBaselineSubmission, BACKEND_URL } from '../utils/api';
-import { fixFormHtml, getFormValues, getControlMetadata, getResultForSubmit } from '../utils/formUtils';
+import { fixFormHtml, getFormValues, getControlMetadata, getResultForSubmit, generateSubmissionHtml } from '../utils/formUtils';
 import { eval_form } from '../utils/testFunctions';
 import SubmissionsList from './SubmissionsList';
 
@@ -97,11 +97,20 @@ function FormRunner({ formId }) {
       const commentsTextarea = document.getElementById('submission-comments');
       const commentsValue = commentsTextarea ? commentsTextarea.value.trim() : '';
       
+      // Generate submission HTML with filled values
+      const originalHtml = formDef?.html || '';
+      console.log('Generating submissionHtml from:', originalHtml);
+      console.log('With values:', values);
+      console.log('With metadata:', metadata);
+      const submissionHtml = generateSubmissionHtml(originalHtml, values, metadata);
+      console.log('Generated submissionHtml:', submissionHtml);
+      
       const submission = {
         values,
         metadata,
         result,
-        comments: commentsValue
+        comments: commentsValue,
+        submissionHtml: submissionHtml
       };
 
       console.log('Submitting:', submission);
@@ -245,6 +254,27 @@ function FormRunner({ formId }) {
                 }, 10);
               } catch (err) {
                 console.error('Error in eval_form:', err);
+              }
+            }, 100);
+          }
+          
+          // Initialize file upload handlers
+          if (typeof window.initAutoFileUploads === 'function') {
+            setTimeout(() => {
+              try {
+                window.initAutoFileUploads();
+              } catch (err) {
+                console.error('Error initializing file uploads:', err);
+              }
+            }, 100);
+          }
+          
+          if (typeof window.initMultiFileUploads === 'function') {
+            setTimeout(() => {
+              try {
+                window.initMultiFileUploads();
+              } catch (err) {
+                console.error('Error initializing multi-file uploads:', err);
               }
             }, 100);
           }

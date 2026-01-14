@@ -104,6 +104,21 @@ function EditorMain({ html, onHtmlChange, loading }) {
             style={{ fontFamily: 'monospace', fontSize: '14px', resize: 'none' }}
             value={html}
             onChange={(e) => onHtmlChange(e.target.value)}
+            onKeyDown={(e) => {
+              // Handle Tab key to insert tab character instead of moving focus
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                const textarea = e.target;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const newValue = html.slice(0, start) + '\t' + html.slice(end);
+                onHtmlChange(newValue);
+                // Set cursor position after the inserted tab
+                setTimeout(() => {
+                  textarea.selectionStart = textarea.selectionEnd = start + 1;
+                }, 0);
+              }
+            }}
             placeholder="Enter HTML form code here..."
             disabled={loading}
           />
