@@ -20,6 +20,20 @@ export function getFormValues(formElement) {
   
   // Collect from all form controls using id as the key (or name if id is not available)
   const controls = formElement.querySelectorAll('input, select, textarea');
+  
+  // First, identify all hidden inputs that are targets for checkbox groups
+  const checkboxGroupTargets = new Set();
+  formElement.querySelectorAll('input[type="hidden"]').forEach(hidden => {
+    const hiddenId = hidden.id || hidden.name;
+    if (hiddenId) {
+      // Check if there are checkboxes with IDs starting with hiddenId + "_"
+      const relatedCheckboxes = formElement.querySelectorAll(`input[type="checkbox"][id^="${hiddenId}_"]`);
+      if (relatedCheckboxes.length > 0) {
+        checkboxGroupTargets.add(hiddenId);
+      }
+    }
+  });
+  
   controls.forEach((el) => {
     // Skip file inputs - handled separately
     if (el.type === 'file') {
@@ -34,10 +48,49 @@ export function getFormValues(formElement) {
     // Use id as primary key, fall back to name if id is not available
     const key = el.id || el.name;
     
+    // Skip individual checkboxes that are part of a checkbox group
+    // e.g., if hidden input "choice1" exists and checkbox "choice1_one" exists, skip the checkbox
+    if (el.type === 'checkbox' && key) {
+      for (const targetId of checkboxGroupTargets) {
+        if (key.startsWith(`${targetId}_`)) {
+          return; // Skip this checkbox - it's part of a group
+        }
+      }
+    }
+    
     // Exclude submission-comments from values - it's saved separately in the comments field
     // Also exclude any field that starts with 'submission-' to be safe
     if (key && key !== 'submission-comments' && !key.startsWith('submission-')) {
-      values[key] = el.value;
+      // Handle multiple select elements - collect all selected values
+      if (el.tagName === 'SELECT' && el.multiple) {
+        const selectedValues = [];
+        for (let i = 0; i < el.options.length; i++) {
+          if (el.options[i].selected) {
+            selectedValues.push(el.options[i].value);
+          }
+        }
+        values[key] = selectedValues;
+      } else if (el.type === 'hidden' && el.value) {
+        // Handle hidden inputs that may contain JSON arrays (from checkbox groups)
+        // If value is empty string and required, it means no checkboxes were selected
+        if (el.value === '' && el.hasAttribute('required')) {
+          // Skip empty required hidden inputs (validation will catch this)
+          return;
+        }
+        try {
+          const parsed = JSON.parse(el.value);
+          if (Array.isArray(parsed)) {
+            values[key] = parsed;
+          } else {
+            values[key] = el.value;
+          }
+        } catch {
+          // Not JSON, use as-is
+          values[key] = el.value;
+        }
+      } else {
+        values[key] = el.value;
+      }
     }
   });
   
@@ -190,24 +243,108 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
         // Set the value if it exists in the values object
         if (key && key in values) {
           const valueToSet = values[key];
-          el.value = valueToSet;
-          el.setAttribute('value', valueToSet);
+          
+          // If the value is an array (from checkbox groups), stringify it
+          if (Array.isArray(valueToSet)) {
+            el.value = JSON.stringify(valueToSet);
+            el.setAttribute('value', el.value);
+            
+            // Also restore checkbox states if this is a checkbox group
+            // Strategy 1: Look for checkboxes with IDs starting with key + "_"
+            const checkboxesById = container.querySelectorAll(`input[type="checkbox"][id^="${key}_"]`);
+            
+            // Strategy 2: Look for container with id ending in "_group"
+            const containerId = `${key}_group`;
+            const checkboxContainer = container.querySelector(`#${containerId}`);
+            const checkboxesInContainer = checkboxContainer ? checkboxContainer.querySelectorAll('input[type="checkbox"]') : [];
+            
+            // Use checkboxes found by ID prefix, or fall back to container checkboxes
+            const checkboxes = checkboxesById.length > 0 ? checkboxesById : checkboxesInContainer;
+            
+            if (checkboxes.length > 0) {
+              // Uncheck all checkboxes first
+              checkboxes.forEach(cb => {
+                cb.removeAttribute('checked');
+                cb.checked = false;
+              });
+              
+              // Check the ones that match the values
+              valueToSet.forEach(val => {
+                // Try to find by value attribute
+                const checkbox = Array.from(checkboxes).find(cb => cb.value === String(val));
+                if (checkbox) {
+                  checkbox.setAttribute('checked', 'checked');
+                  checkbox.checked = true;
+                }
+              });
+            }
+          } else {
+            el.value = valueToSet;
+            el.setAttribute('value', valueToSet);
+          }
           console.log('Set hidden input value:', key, '=', valueToSet);
         }
         return;
       }
       
-      // Inject class="form-control" if not present
-      if (!el.classList.contains('form-control')) {
+      // Inject class="form-control" if not present and no conflicting Bootstrap form classes
+      // Skip if element has form-check-input, form-select, or other form-* classes that conflict
+      const hasConflictingClass = el.classList.contains('form-check-input') ||
+                                  el.classList.contains('form-select') ||
+                                  Array.from(el.classList).some(cls => cls.startsWith('form-') && cls !== 'form-control');
+      
+      if (!el.classList.contains('form-control') && !hasConflictingClass) {
         const existingClasses = el.className || '';
         el.className = existingClasses ? `${existingClasses} form-control` : 'form-control';
       }
       
       // Set the value if it exists in the values object
       if (key && key in values) {
-        el.value = values[key];
-        // Also set the value attribute to ensure it's preserved in innerHTML
-        el.setAttribute('value', values[key]);
+        const valueToSet = values[key];
+        el.value = valueToSet;
+        
+        // For select elements, we need to set the selected attribute on the option(s)
+        if (el.tagName === 'SELECT') {
+          // Remove selected from all options first
+          const options = el.querySelectorAll('option');
+          options.forEach(opt => opt.removeAttribute('selected'));
+          
+          // Handle multiple select (value is an array) or single select (value is a string)
+          if (el.multiple && Array.isArray(valueToSet)) {
+            // Multiple select: set selected on all matching options
+            valueToSet.forEach(val => {
+              const matchingOption = el.querySelector(`option[value="${CSS.escape(String(val))}"]`);
+              if (matchingOption) {
+                matchingOption.setAttribute('selected', 'selected');
+              } else {
+                // If no exact match, try to find by value property
+                for (let i = 0; i < el.options.length; i++) {
+                  if (el.options[i].value === String(val)) {
+                    el.options[i].setAttribute('selected', 'selected');
+                    break;
+                  }
+                }
+              }
+            });
+          } else {
+            // Single select: set selected on the matching option
+            const matchingOption = el.querySelector(`option[value="${CSS.escape(String(valueToSet))}"]`);
+            if (matchingOption) {
+              matchingOption.setAttribute('selected', 'selected');
+            } else {
+              // If no exact match, try to find by value property
+              for (let i = 0; i < el.options.length; i++) {
+                if (el.options[i].value === String(valueToSet)) {
+                  el.options[i].setAttribute('selected', 'selected');
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          // For other input types, set the value attribute
+          el.setAttribute('value', valueToSet);
+        }
       } else if (key) {
         // Debug: log if key exists but value not found
         console.warn(`generateSubmissionHtml: Key "${key}" not found in values object`, {
@@ -218,11 +355,17 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
       }
       
       // Make fields readonly to show they're submitted values
-      // Note: Don't set disabled - disabled inputs don't serialize their values in innerHTML
-      el.setAttribute('readonly', 'true');
-      // Remove disabled if present, as it prevents value serialization
-      if (el.hasAttribute('disabled')) {
-        el.removeAttribute('disabled');
+      // Note: For select elements, readonly doesn't work, so we use disabled but ensure selected option is set
+      if (el.tagName === 'SELECT') {
+        // For select, we need to use disabled, but the selected option will still be visible
+        el.setAttribute('disabled', 'true');
+      } else {
+        // For other inputs, use readonly
+        el.setAttribute('readonly', 'true');
+        // Remove disabled if present, as it prevents value serialization
+        if (el.hasAttribute('disabled')) {
+          el.removeAttribute('disabled');
+        }
       }
       
       // Add result badge if present in metadata

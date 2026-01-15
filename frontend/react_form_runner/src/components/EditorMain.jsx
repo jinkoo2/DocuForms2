@@ -99,8 +99,13 @@ function EditorMain({ html, onHtmlChange, loading }) {
           return;
         }
         
-        // Check if form-control class is already present
-        if (!control.classList.contains('form-control')) {
+        // Check if form-control class is already present or if there are conflicting Bootstrap form classes
+        // Skip if element has form-check-input, form-select, or other form-* classes that conflict
+        const hasConflictingClass = control.classList.contains('form-check-input') ||
+                                     control.classList.contains('form-select') ||
+                                     Array.from(control.classList).some(cls => cls.startsWith('form-') && cls !== 'form-control');
+        
+        if (!control.classList.contains('form-control') && !hasConflictingClass) {
           // Add form-control class, preserving existing classes
           const existingClasses = control.className || '';
           control.className = existingClasses ? `${existingClasses} form-control` : 'form-control';
@@ -139,40 +144,103 @@ function EditorMain({ html, onHtmlChange, loading }) {
         }
       }
 
-      // Initialize image preview handlers for file inputs with data-file-type="image"
-      if (iframeWindow && iframeWindow.document) {
-        try {
-          const imageFileInputs = iframeWindow.document.querySelectorAll('input[type="file"][data-file-type="image"][data-file-target-element-id]');
-          
-          imageFileInputs.forEach(input => {
-            // Skip if already has an onchange handler
-            if (input.hasAttribute('onchange') && input.getAttribute('onchange').trim()) {
-              return;
-            }
-            
-            const targetId = input.getAttribute('data-file-target-element-id');
-            if (!targetId) return;
-            
-            // Attach the handler
-            input.addEventListener('change', function() {
-              const img = iframeWindow.document.getElementById(targetId);
-              const file = this.files[0];
-              if (!file || !img) return;
+            // Initialize image preview handlers for file inputs with data-file-type="image"
+            if (iframeWindow && iframeWindow.document) {
+              try {
+                const imageFileInputs = iframeWindow.document.querySelectorAll('input[type="file"][data-file-type="image"][data-file-target-element-id]');
+                
+                imageFileInputs.forEach(input => {
+                  // Skip if already has an onchange handler
+                  if (input.hasAttribute('onchange') && input.getAttribute('onchange').trim()) {
+                    return;
+                  }
+                  
+                  const targetId = input.getAttribute('data-file-target-element-id');
+                  if (!targetId) return;
+                  
+                  // Attach the handler
+                  input.addEventListener('change', function() {
+                    const img = iframeWindow.document.getElementById(targetId);
+                    const file = this.files[0];
+                    if (!file || !img) return;
 
-              const reader = new FileReader();
-              reader.onload = e => {
-                img.src = e.target.result;
-                img.style.display = 'block';
-                // Store base64 data in data attribute for database submission
-                this.setAttribute('data-file-data', e.target.result);
-              };
-              reader.readAsDataURL(file);
-            });
-          });
-        } catch (err) {
-          console.error('Error initializing image preview handlers in preview:', err);
-        }
-      }
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                      img.src = e.target.result;
+                      img.style.display = 'block';
+                      // Store base64 data in data attribute for database submission
+                      this.setAttribute('data-file-data', e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                  });
+                });
+              } catch (err) {
+                console.error('Error initializing image preview handlers in preview:', err);
+              }
+            }
+
+            // Initialize checkbox groups (checkboxes that sync to hidden inputs)
+            if (iframeWindow && iframeWindow.document) {
+              try {
+                const doc = iframeWindow.document;
+                // Find all hidden inputs that might be targets for checkbox groups
+                const hiddenInputs = doc.querySelectorAll('input[type="hidden"]');
+                
+                hiddenInputs.forEach(hidden => {
+                  const hiddenId = hidden.id || hidden.name;
+                  if (!hiddenId) return;
+                  
+                  // Strategy 1: Look for checkboxes with IDs starting with hiddenId + "_"
+                  // e.g., hidden id="choice1" -> checkboxes id="choice1_one", "choice1_two", etc.
+                  const checkboxesById = doc.querySelectorAll(`input[type="checkbox"][id^="${hiddenId}_"]`);
+                  
+                  // Strategy 2: Look for a container with id ending in "_group"
+                  // e.g., hidden id="choice1" -> container id="choice1_group"
+                  const containerId = `${hiddenId}_group`;
+                  const container = doc.getElementById(containerId);
+                  const checkboxesInContainer = container ? container.querySelectorAll('input[type="checkbox"]') : [];
+                  
+                  // Use checkboxes found by ID prefix, or fall back to container checkboxes
+                  const checkboxes = checkboxesById.length > 0 ? checkboxesById : checkboxesInContainer;
+                  
+                  if (checkboxes.length > 0) {
+                    // Check if the hidden input has required attribute
+                    const isRequired = hidden.hasAttribute('required');
+                    
+                    // Bind the checkbox group to the hidden input
+                    const update = () => {
+                      const values = Array.from(checkboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+                      
+                      // If required and no checkboxes are selected, set empty string
+                      // Otherwise, set JSON array
+                      if (isRequired && values.length === 0) {
+                        hidden.value = '';
+                        hidden.setAttribute('value', '');
+                        // Mark as invalid for HTML5 validation
+                        hidden.setCustomValidity('Please select at least one option.');
+                      } else {
+                        hidden.value = JSON.stringify(values);
+                        hidden.setAttribute('value', hidden.value);
+                        // Clear any custom validity message
+                        hidden.setCustomValidity('');
+                      }
+                    };
+                    
+                    // Add change listeners to all checkboxes in the group
+                    checkboxes.forEach(checkbox => {
+                      checkbox.addEventListener('change', update);
+                    });
+                    
+                    // Initial update
+                    update();
+                  }
+                });
+              } catch (err) {
+                console.error('Error initializing checkbox groups in preview:', err);
+              }
+            }
 
       // Call eval_form to initialize form (run data-script, etc.)
       if (iframeWindow && typeof iframeWindow.eval_form === 'function') {

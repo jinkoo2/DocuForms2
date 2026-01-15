@@ -80,6 +80,128 @@ function FormRunner({ formId }) {
       return;
     }
 
+    // Check HTML5 form validation before submitting
+    // Also manually check all required hidden inputs for checkbox groups
+    const requiredHiddenInputs = formRef.current.querySelectorAll('input[type="hidden"][required]');
+    let hasInvalidRequiredCheckboxGroup = false;
+    
+    requiredHiddenInputs.forEach(hidden => {
+      if (!hidden.value || hidden.value.trim() === '') {
+        // Set custom validity if not already set
+        if (hidden.validationMessage === '') {
+          hidden.setCustomValidity('Please select at least one option.');
+        }
+        // Add is-invalid class for Bootstrap styling
+        hidden.classList.add('is-invalid');
+        
+        // Show invalid-feedback div - try multiple strategies
+        let feedback = null;
+        
+        // Strategy 1: Check next sibling
+        let sibling = hidden.nextElementSibling;
+        while (sibling) {
+          if (sibling.classList && sibling.classList.contains('invalid-feedback')) {
+            feedback = sibling;
+            break;
+          }
+          sibling = sibling.nextElementSibling;
+        }
+        
+        // Strategy 2: Check parent container
+        if (!feedback) {
+          const parent = hidden.parentElement;
+          if (parent) {
+            feedback = parent.querySelector('.invalid-feedback');
+          }
+        }
+        
+        // Strategy 3: Check the checkbox group container
+        if (!feedback) {
+          const hiddenId = hidden.id || hidden.name;
+          if (hiddenId) {
+            const containerId = `${hiddenId}_group`;
+            const container = document.getElementById(containerId);
+            if (container) {
+              const containerParent = container.parentElement;
+              if (containerParent) {
+                feedback = containerParent.querySelector('.invalid-feedback');
+              }
+            }
+          }
+        }
+        
+        if (feedback) {
+          // Ensure the feedback div has text content
+          if (!feedback.textContent || feedback.textContent.trim() === '') {
+            feedback.textContent = 'Please select at least one option.';
+          }
+          
+          // Force display with !important to override Bootstrap's default display: none
+          feedback.style.setProperty('display', 'block', 'important');
+          feedback.style.setProperty('width', '100%', 'important');
+          feedback.style.setProperty('margin-top', '0.25rem', 'important');
+          feedback.style.setProperty('font-size', '0.875em', 'important');
+          feedback.style.setProperty('color', '#dc3545', 'important');
+          feedback.style.setProperty('opacity', '1', 'important');
+          feedback.style.setProperty('visibility', 'visible', 'important');
+          // Also add d-block class in case Bootstrap needs it
+          feedback.classList.add('d-block');
+          
+          // Check parent visibility
+          let parent = feedback.parentElement;
+          while (parent && parent !== document.body) {
+            const parentStyle = window.getComputedStyle(parent);
+            if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden' || parentStyle.opacity === '0') {
+              console.warn('Parent element is hiding the feedback:', parent, parentStyle);
+              parent.style.setProperty('display', 'block', 'important');
+              parent.style.setProperty('visibility', 'visible', 'important');
+              parent.style.setProperty('opacity', '1', 'important');
+            }
+            parent = parent.parentElement;
+          }
+          
+          console.log('Showing invalid-feedback for:', hidden.id || hidden.name, feedback, 'textContent:', feedback.textContent);
+          console.log('Feedback div position:', feedback.getBoundingClientRect());
+        } else {
+          console.warn('Could not find invalid-feedback div for:', hidden.id || hidden.name);
+        }
+        
+        // Also add is-invalid class to parent container and form for Bootstrap styling
+        const parent = hidden.parentElement;
+        if (parent && parent.classList) {
+          parent.classList.add('was-validated');
+          // Also try adding to the checkbox group container
+          const hiddenId = hidden.id || hidden.name;
+          if (hiddenId) {
+            const containerId = `${hiddenId}_group`;
+            const container = document.getElementById(containerId);
+            if (container && container.parentElement) {
+              container.parentElement.classList.add('was-validated');
+            }
+          }
+        }
+        // Add was-validated to the form itself
+        if (formRef.current) {
+          formRef.current.classList.add('was-validated');
+        }
+        
+        hasInvalidRequiredCheckboxGroup = true;
+        console.log('Found invalid required checkbox group:', hidden.id || hidden.name);
+      }
+    });
+    
+    if (!formRef.current.checkValidity() || hasInvalidRequiredCheckboxGroup) {
+      // Form is invalid - trigger browser validation UI
+      formRef.current.reportValidity();
+      // Also manually report validity on invalid hidden inputs
+      requiredHiddenInputs.forEach(hidden => {
+        if (!hidden.value || hidden.value.trim() === '') {
+          hidden.reportValidity();
+        }
+      });
+      return;
+    }
+
     try {
       console.log('Submitting form:', formId);
       console.log('Form element:', formRef.current);
@@ -237,8 +359,13 @@ function FormRunner({ formId }) {
               return;
             }
             
-            // Check if form-control class is already present
-            if (!control.classList.contains('form-control')) {
+            // Check if form-control class is already present or if there are conflicting Bootstrap form classes
+            // Skip if element has form-check-input, form-select, or other form-* classes that conflict
+            const hasConflictingClass = control.classList.contains('form-check-input') ||
+                                        control.classList.contains('form-select') ||
+                                        Array.from(control.classList).some(cls => cls.startsWith('form-') && cls !== 'form-control');
+            
+            if (!control.classList.contains('form-control') && !hasConflictingClass) {
               // Add form-control class, preserving existing classes
               const existingClasses = control.className || '';
               control.className = existingClasses ? `${existingClasses} form-control` : 'form-control';
@@ -376,6 +503,139 @@ function FormRunner({ formId }) {
               console.error('Error initializing image preview handlers:', err);
             }
           }, 100);
+          
+          // Initialize checkbox groups (checkboxes that sync to hidden inputs)
+          setTimeout(() => {
+            try {
+              if (fieldsRef.current) {
+                // Find all hidden inputs that might be targets for checkbox groups
+                const hiddenInputs = fieldsRef.current.querySelectorAll('input[type="hidden"]');
+                
+                hiddenInputs.forEach(hidden => {
+                  const hiddenId = hidden.id || hidden.name;
+                  if (!hiddenId) return;
+                  
+                  // Strategy 1: Look for checkboxes with IDs starting with hiddenId + "_"
+                  // e.g., hidden id="choice1" -> checkboxes id="choice1_one", "choice1_two", etc.
+                  const checkboxesById = fieldsRef.current.querySelectorAll(`input[type="checkbox"][id^="${hiddenId}_"]`);
+                  
+                  // Strategy 2: Look for a container with id ending in "_group"
+                  // e.g., hidden id="choice1" -> container id="choice1_group"
+                  const containerId = `${hiddenId}_group`;
+                  const container = document.getElementById(containerId);
+                  const checkboxesInContainer = container ? container.querySelectorAll('input[type="checkbox"]') : [];
+                  
+                  // Use checkboxes found by ID prefix, or fall back to container checkboxes
+                  const checkboxes = checkboxesById.length > 0 ? checkboxesById : checkboxesInContainer;
+                  
+                  if (checkboxes.length > 0) {
+                    // Check if the hidden input has required attribute
+                    const isRequired = hidden.hasAttribute('required');
+                    
+                    console.log(`Initializing checkbox group: hiddenId=${hiddenId}, isRequired=${isRequired}, checkboxes found=${checkboxes.length}`);
+                    
+                    // Find the invalid-feedback div (should be a sibling or in the same container)
+                    const findInvalidFeedback = () => {
+                      // Look for invalid-feedback div near the hidden input
+                      let feedback = hidden.nextElementSibling;
+                      while (feedback) {
+                        if (feedback.classList.contains('invalid-feedback')) {
+                          return feedback;
+                        }
+                        feedback = feedback.nextElementSibling;
+                      }
+                      // Also check parent container
+                      const parent = hidden.parentElement;
+                      if (parent) {
+                        return parent.querySelector('.invalid-feedback');
+                      }
+                      return null;
+                    };
+                    const invalidFeedback = findInvalidFeedback();
+                    console.log(`Found invalid-feedback div for ${hiddenId}:`, invalidFeedback ? 'YES' : 'NO');
+                    
+                    // Bind the checkbox group to the hidden input
+                    const update = () => {
+                      const values = Array.from(checkboxes)
+                        .filter(cb => cb.checked)
+                        .map(cb => cb.value);
+                      
+                      console.log(`Checkbox group update: hiddenId=${hiddenId}, checked count=${values.length}, values=`, values);
+                      
+                      // If required and no checkboxes are selected, set empty string
+                      // Otherwise, set JSON array
+                      if (isRequired && values.length === 0) {
+                        hidden.value = '';
+                        hidden.setAttribute('value', '');
+                        // Mark as invalid for HTML5 validation
+                        hidden.setCustomValidity('Please select at least one option.');
+                        // Add is-invalid class for Bootstrap styling
+                        hidden.classList.add('is-invalid');
+                        // Show invalid-feedback div
+                        if (invalidFeedback) {
+                          // Ensure the feedback div has text content
+                          if (!invalidFeedback.textContent || invalidFeedback.textContent.trim() === '') {
+                            invalidFeedback.textContent = 'Please select at least one option.';
+                          }
+                          
+                          // Force display with !important to override Bootstrap's default display: none
+                          invalidFeedback.style.setProperty('display', 'block', 'important');
+                          invalidFeedback.style.setProperty('width', '100%', 'important');
+                          invalidFeedback.style.setProperty('margin-top', '0.25rem', 'important');
+                          invalidFeedback.style.setProperty('font-size', '0.875em', 'important');
+                          invalidFeedback.style.setProperty('color', '#dc3545', 'important');
+                          invalidFeedback.style.setProperty('opacity', '1', 'important');
+                          invalidFeedback.style.setProperty('visibility', 'visible', 'important');
+                          invalidFeedback.classList.add('d-block');
+                        }
+                        // Add was-validated class to parent for Bootstrap
+                        const parent = hidden.parentElement;
+                        if (parent && parent.classList) {
+                          parent.classList.add('was-validated');
+                        }
+                        if (container && container.parentElement) {
+                          container.parentElement.classList.add('was-validated');
+                        }
+                        console.log(`Set hidden input ${hiddenId} to empty and marked as invalid`);
+                      } else {
+                        hidden.value = JSON.stringify(values);
+                        hidden.setAttribute('value', hidden.value);
+                        // Clear any custom validity message
+                        hidden.setCustomValidity('');
+                        // Remove is-invalid class
+                        hidden.classList.remove('is-invalid');
+                        // Hide invalid-feedback div
+                        if (invalidFeedback) {
+                          invalidFeedback.style.display = 'none';
+                        }
+                        // Remove was-validated class from parent
+                        const parent = hidden.parentElement;
+                        if (parent && parent.classList) {
+                          parent.classList.remove('was-validated');
+                        }
+                        if (container && container.parentElement) {
+                          container.parentElement.classList.remove('was-validated');
+                        }
+                        console.log(`Set hidden input ${hiddenId} to:`, hidden.value);
+                      }
+                    };
+                    
+                    // Add change listeners to all checkboxes in the group
+                    checkboxes.forEach(checkbox => {
+                      checkbox.addEventListener('change', update);
+                    });
+                    
+                    // Initial update - this will set validation state
+                    update();
+                  } else {
+                    console.warn(`No checkboxes found for hidden input: ${hiddenId}`);
+                  }
+                });
+              }
+            } catch (err) {
+              console.error('Error initializing checkbox groups:', err);
+            }
+          }, 100);
         }
       }, 0);
       
@@ -464,10 +724,6 @@ function FormRunner({ formId }) {
         <div className="tab-pane fade show active" id="form-tab" role="tabpanel">
           <form ref={formRef} id="form">
             <div ref={fieldsRef} id="fields"></div>
-
-            <div className="result">
-              Result: <span id="live-result">{liveResult}</span>
-            </div>
 
             <div className="mb-3">
               <label htmlFor="submission-comments" className="form-label">Comments</label>
