@@ -42,6 +42,7 @@ async def list_submissions(form_id: str):
         doc = convert_objectid_to_str(doc)
         submissions.append({
             "id": doc.get("_id"),
+            "formId": doc.get("formId"),  # Include formId to verify it matches
             "values": doc.get("values", {}),
             "metadata": doc.get("metadata", {}),
             "result": doc.get("result"),

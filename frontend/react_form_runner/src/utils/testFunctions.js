@@ -474,29 +474,32 @@ function initMultiFileUploads() {
       if (!hidden || !list) return;
 
       // Restore existing file data (edit mode)
-      readJsonArray(hidden).forEach(fileData => {
-        // Handle both old format (string URL) and new format (object with url and originalName)
-        let url, filename;
-        if (typeof fileData === 'string') {
-          url = fileData;
-          filename = url.split('/').pop();
-        } else {
-          url = fileData.url;
-          filename = fileData.originalName || url.split('/').pop();
-        }
-        const { row } = renderFileRow({
-          url,
-          filename,
-          onDelete: () => {
-            const arr = readJsonArray(hidden).filter(f => {
-              const fUrl = typeof f === 'string' ? f : f.url;
-              return fUrl !== url;
-            });
-            writeJsonArray(hidden, arr);
+      // Only restore if the list is empty (to avoid duplicates when viewing submissions)
+      if (list.children.length === 0) {
+        readJsonArray(hidden).forEach(fileData => {
+          // Handle both old format (string URL) and new format (object with url and originalName)
+          let url, filename;
+          if (typeof fileData === 'string') {
+            url = fileData;
+            filename = url.split('/').pop();
+          } else {
+            url = fileData.url;
+            filename = fileData.originalName || url.split('/').pop();
           }
+          const { row } = renderFileRow({
+            url,
+            filename,
+            onDelete: () => {
+              const arr = readJsonArray(hidden).filter(f => {
+                const fUrl = typeof f === 'string' ? f : f.url;
+                return fUrl !== url;
+              });
+              writeJsonArray(hidden, arr);
+            }
+          });
+          list.appendChild(row);
         });
-        list.appendChild(row);
-      });
+      }
 
       // Handle new uploads
       input.addEventListener('change', async () => {

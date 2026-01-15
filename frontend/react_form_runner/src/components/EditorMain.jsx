@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatHtml } from '../utils/formBuilderUtils';
+import { fixFormHtml } from '../utils/formUtils';
 
 function EditorMain({ html, onHtmlChange, loading }) {
   const [sourceWidth, setSourceWidth] = useState(50);
@@ -13,6 +14,17 @@ function EditorMain({ html, onHtmlChange, loading }) {
 
   const updatePreview = (htmlContent) => {
     if (!previewFrameRef.current) return;
+
+    // Use fixFormHtml to ensure proper form structure
+    const fixedHtml = fixFormHtml(htmlContent || '');
+    
+    // Extract body content if HTML includes body tag
+    let htmlToRender = fixedHtml;
+    if (htmlToRender.includes('<body')) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlToRender, 'text/html');
+      htmlToRender = doc.body ? doc.body.innerHTML : htmlToRender;
+    }
 
     const fullHtml = `
       <!DOCTYPE html>
@@ -30,7 +42,10 @@ function EditorMain({ html, onHtmlChange, loading }) {
         </style>
       </head>
       <body>
-        ${htmlContent || '<p class="text-muted">Start editing to see preview...</p>'}
+        <form id="form">
+          ${htmlToRender || '<p class="text-muted">Start editing to see preview...</p>'}
+        </form>
+        <script src="/test_functions.js"></script>
       </body>
       </html>
     `;
@@ -39,6 +54,146 @@ function EditorMain({ html, onHtmlChange, loading }) {
     doc.open();
     doc.write(fullHtml);
     doc.close();
+
+    // Function to initialize form preview (same logic as FormRunner)
+    const initializePreview = () => {
+      const iframeDoc = previewFrameRef.current.contentDocument || previewFrameRef.current.contentWindow.document;
+      if (!iframeDoc) return;
+
+      const formElement = iframeDoc.getElementById('form');
+      if (!formElement) return;
+      
+      const iframeWindow = previewFrameRef.current.contentWindow;
+      if (iframeWindow && typeof iframeWindow.BACKEND_URL === 'undefined') {
+        iframeWindow.BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      }
+
+      // Ensure form controls have both id and name attributes (set one from the other if needed)
+      // If id is present without name, set name=id
+      // If name is present without id, set id=name
+      const formControls = formElement.querySelectorAll('input, select, textarea');
+      
+      formControls.forEach((control) => {
+        const id = control.id || control.getAttribute('id');
+        const name = control.name || control.getAttribute('name');
+        
+        // If id is present but name is not, set name=id
+        if (id && !name) {
+          control.setAttribute('name', id);
+          control.name = id;
+        }
+        
+        // If name is present but id is not, set id=name
+        if (name && !id) {
+          control.setAttribute('id', name);
+          control.id = name;
+        }
+      });
+
+      // Inject class="form-control" to all form controls if not present
+      // Also inject oninput="eval_form(this)" for all input and textarea controls if not present
+      // Also inject onchange="eval_form(this)" for all form controls if not present
+      formControls.forEach((control) => {
+        // Skip file inputs and hidden inputs
+        if (control.type === 'file' || control.type === 'hidden') {
+          return;
+        }
+        
+        // Check if form-control class is already present
+        if (!control.classList.contains('form-control')) {
+          // Add form-control class, preserving existing classes
+          const existingClasses = control.className || '';
+          control.className = existingClasses ? `${existingClasses} form-control` : 'form-control';
+        }
+        
+        // Inject oninput="eval_form(this)" for input and textarea if handler is not already present
+        if ((control.tagName === 'INPUT' || control.tagName === 'TEXTAREA') && !control.hasAttribute('oninput')) {
+          control.setAttribute('oninput', 'eval_form(this)');
+        }
+        
+        // Inject onchange="eval_form(this)" for all form controls if handler is not already present
+        if (!control.hasAttribute('onchange')) {
+          control.setAttribute('onchange', 'eval_form(this)');
+        }
+      });
+
+      // Hide submit buttons in preview
+      const submitButtons = formElement.querySelectorAll('button[type="submit"], input[type="submit"]');
+      submitButtons.forEach((btn) => {
+        btn.style.display = 'none';
+      });
+
+      // Initialize file uploads if test_functions.js is loaded
+      if (iframeWindow && typeof iframeWindow.initAutoFileUploads === 'function') {
+        try {
+          iframeWindow.initAutoFileUploads();
+        } catch (err) {
+          console.error('Error initializing auto file uploads in preview:', err);
+        }
+      }
+      if (iframeWindow && typeof iframeWindow.initMultiFileUploads === 'function') {
+        try {
+          iframeWindow.initMultiFileUploads();
+        } catch (err) {
+          console.error('Error initializing multi-file uploads in preview:', err);
+        }
+      }
+
+      // Initialize image preview handlers for file inputs with data-file-type="image"
+      if (iframeWindow && iframeWindow.document) {
+        try {
+          const imageFileInputs = iframeWindow.document.querySelectorAll('input[type="file"][data-file-type="image"][data-file-target-element-id]');
+          
+          imageFileInputs.forEach(input => {
+            // Skip if already has an onchange handler
+            if (input.hasAttribute('onchange') && input.getAttribute('onchange').trim()) {
+              return;
+            }
+            
+            const targetId = input.getAttribute('data-file-target-element-id');
+            if (!targetId) return;
+            
+            // Attach the handler
+            input.addEventListener('change', function() {
+              const img = iframeWindow.document.getElementById(targetId);
+              const file = this.files[0];
+              if (!file || !img) return;
+
+              const reader = new FileReader();
+              reader.onload = e => {
+                img.src = e.target.result;
+                img.style.display = 'block';
+                // Store base64 data in data attribute for database submission
+                this.setAttribute('data-file-data', e.target.result);
+              };
+              reader.readAsDataURL(file);
+            });
+          });
+        } catch (err) {
+          console.error('Error initializing image preview handlers in preview:', err);
+        }
+      }
+
+      // Call eval_form to initialize form (run data-script, etc.)
+      if (iframeWindow && typeof iframeWindow.eval_form === 'function') {
+        try {
+          iframeWindow.eval_form(null);
+        } catch (err) {
+          console.error('Error calling eval_form in preview:', err);
+        }
+      }
+    };
+
+    // After the iframe loads, initialize the preview
+    const iframeWindow = previewFrameRef.current.contentWindow;
+    if (iframeWindow) {
+      iframeWindow.addEventListener('load', () => {
+        setTimeout(initializePreview, 200);
+      });
+    }
+    
+    // Also run as fallback in case load event already fired
+    setTimeout(initializePreview, 300);
   };
 
   const handleFormat = () => {

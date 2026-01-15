@@ -17,8 +17,30 @@ function SubmissionPreview({ submission, onClose }) {
     const comments = (submission.comments || '').trim();
     // Use the test_functions.js from the public directory (served as static asset)
     const scriptSrc = '/test_functions.js';
-    const html = submission.formHtml || '';
-    const fixedHtml = fixFormHtml(html);
+    
+    // Use submissionHtml if available (it already has values filled in), otherwise fall back to formHtml
+    let html = '';
+    const useSubmissionHtml = submission.submissionHtml && submission.submissionHtml.trim();
+    
+    console.log('SubmissionPreview - submission data:', {
+      submissionId: submission.id || submission._id,
+      formId: submission.formId,
+      hasSubmissionHtml: !!submission.submissionHtml,
+      submissionHtmlLength: submission.submissionHtml?.length || 0,
+      hasFormHtml: !!submission.formHtml,
+      formHtmlLength: submission.formHtml?.length || 0,
+      useSubmissionHtml
+    });
+    
+    if (useSubmissionHtml) {
+      html = submission.submissionHtml;
+      console.log('SubmissionPreview - Using submissionHtml');
+    } else {
+      // Fallback to original form HTML (for backward compatibility with old submissions)
+      html = submission.formHtml || '';
+      console.log('SubmissionPreview - Using formHtml fallback, length:', html.length);
+      html = fixFormHtml(html);
+    }
     
     const fullHtml = `<!DOCTYPE html>
 <html><head>
@@ -31,7 +53,7 @@ function SubmissionPreview({ submission, onClose }) {
       <span class="badge ${resultBadge}">${resultText || '—'}</span>
     </div>
     ${comments ? `<div class="alert alert-info mb-3"><strong>Comments:</strong><br><span style="white-space: pre-wrap;">${comments.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</span></div>` : ''}
-    ${fixedHtml}
+    ${html}
   </div>
   <script src="${scriptSrc}"></script>
 </body></html>`;
@@ -71,154 +93,158 @@ function SubmissionPreview({ submission, onClose }) {
       });
     };
 
-    // Populate values and set readonly/disabled
-    const controls = doc.querySelectorAll('input, select, textarea');
-    controls.forEach((el) => {
-      if (el.type === 'file') {
-        el.style.display = 'none';
-        return;
-      }
-      
-      const key = el.name || el.id;
-      if (submission.values && key && key in submission.values) {
-        el.value = submission.values[key];
-      }
-      el.setAttribute('readonly', true);
-      el.setAttribute('disabled', true);
-
-      // Attach result badge if present in metadata
-      const fieldMeta = submission.metadata && key ? submission.metadata[key] : null;
-      const fieldResult = fieldMeta && fieldMeta.result ? String(fieldMeta.result).toUpperCase() : '';
-      if (fieldResult) {
-        const badgeClass =
-          fieldResult === 'PASS' ? 'bg-success' :
-          fieldResult === 'WARNING' ? 'bg-warning text-dark' :
-          fieldResult === 'FAIL' ? 'bg-danger' : 'bg-secondary';
-        const badge = doc.createElement('span');
-        badge.className = `badge ${badgeClass} ms-2`;
-        badge.textContent = fieldResult;
-        const parent = el.parentElement;
-        if (parent) {
-          parent.appendChild(badge);
-        } else {
-          el.insertAdjacentElement('afterend', badge);
+    // Only populate values manually if we're using the fallback (formHtml)
+    // submissionHtml already has values filled in, so skip this step
+    if (!useSubmissionHtml) {
+      // Populate values and set readonly/disabled
+      const controls = doc.querySelectorAll('input, select, textarea');
+      controls.forEach((el) => {
+        if (el.type === 'file') {
+          el.style.display = 'none';
+          return;
         }
-      }
-    });
-
-    // Handle file inputs: hide them and load image previews from metadata
-    const fileInputs = doc.querySelectorAll('input[type="file"]');
-    fileInputs.forEach((fileInput) => {
-      fileInput.style.display = 'none';
-      
-      const fileType = fileInput.getAttribute('data-file-type');
-      const targetElementId = fileInput.getAttribute('data-file-target-element-id');
-      const downloadLinkId = fileInput.getAttribute('data-download-link');
-      const fileListId = fileInput.getAttribute('data-file-list');
-      const isMultiple = fileInput.hasAttribute('multiple');
-      const inputName = fileInput.name || fileInput.id;
-      
-      // Get the value from submission
-      if (inputName && submission.values && inputName in submission.values) {
-        const value = submission.values[inputName];
         
-        // Handle multi-file uploads
-        if (isMultiple && fileListId) {
-          try {
-            let fileDataArray;
-            if (typeof value === 'string') {
-              fileDataArray = JSON.parse(value);
-            } else if (Array.isArray(value)) {
-              fileDataArray = value;
-            } else {
-              fileDataArray = [];
-            }
-            
-            if (Array.isArray(fileDataArray) && fileDataArray.length > 0) {
-              const fileListContainer = doc.getElementById(fileListId);
-              if (fileListContainer) {
-                fileListContainer.innerHTML = '';
-                fileDataArray.forEach((fileData) => {
-                  // Handle both old format (string URL) and new format (object)
-                  let fileUrl, filename;
-                  if (typeof fileData === 'string') {
-                    fileUrl = fileData;
-                    filename = fileUrl.split('/').pop();
-                  } else if (fileData && typeof fileData === 'object') {
-                    fileUrl = fileData.url;
-                    filename = fileData.originalName || fileUrl.split('/').pop();
-                  } else {
-                    return;
-                  }
-                  
-                  if (fileUrl) {
-                    const row = doc.createElement('div');
-                    row.className = 'upload-row';
-                    
-                    const link = doc.createElement('a');
-                    link.href = fileUrl;
-                    link.target = '_blank';
-                    link.textContent = `Download ${filename}`;
-                    link.setAttribute('download', '');
-                    
-                    row.appendChild(link);
-                    fileListContainer.appendChild(row);
-                  }
-                });
-              }
-            }
-          } catch (err) {
-            console.warn('Error processing multi-file upload in preview:', err);
+        const key = el.name || el.id;
+        if (submission.values && key && key in submission.values) {
+          el.value = submission.values[key];
+        }
+        el.setAttribute('readonly', true);
+        el.setAttribute('disabled', true);
+
+        // Attach result badge if present in metadata
+        const fieldMeta = submission.metadata && key ? submission.metadata[key] : null;
+        const fieldResult = fieldMeta && fieldMeta.result ? String(fieldMeta.result).toUpperCase() : '';
+        if (fieldResult) {
+          const badgeClass =
+            fieldResult === 'PASS' ? 'bg-success' :
+            fieldResult === 'WARNING' ? 'bg-warning text-dark' :
+            fieldResult === 'FAIL' ? 'bg-danger' : 'bg-secondary';
+          const badge = doc.createElement('span');
+          badge.className = `badge ${badgeClass} ms-2`;
+          badge.textContent = fieldResult;
+          const parent = el.parentElement;
+          if (parent) {
+            parent.appendChild(badge);
+          } else {
+            el.insertAdjacentElement('afterend', badge);
           }
-        } else {
-          // Handle single file upload
-          let fileUrl, filename;
-          if (typeof value === 'string') {
+        }
+      });
+
+      // Handle file inputs: hide them and load image previews from metadata
+      const fileInputs = doc.querySelectorAll('input[type="file"]');
+      fileInputs.forEach((fileInput) => {
+        fileInput.style.display = 'none';
+        
+        const fileType = fileInput.getAttribute('data-file-type');
+        const targetElementId = fileInput.getAttribute('data-file-target-element-id');
+        const downloadLinkId = fileInput.getAttribute('data-download-link');
+        const fileListId = fileInput.getAttribute('data-file-list');
+        const isMultiple = fileInput.hasAttribute('multiple');
+        const inputName = fileInput.name || fileInput.id;
+        
+        // Get the value from submission
+        if (inputName && submission.values && inputName in submission.values) {
+          const value = submission.values[inputName];
+          
+          // Handle multi-file uploads
+          if (isMultiple && fileListId) {
             try {
-              const fileData = JSON.parse(value);
-              if (typeof fileData === 'object' && fileData.url) {
-                fileUrl = fileData.url;
-                filename = fileData.originalName || fileUrl.split('/').pop();
+              let fileDataArray;
+              if (typeof value === 'string') {
+                fileDataArray = JSON.parse(value);
+              } else if (Array.isArray(value)) {
+                fileDataArray = value;
               } else {
+                fileDataArray = [];
+              }
+              
+              if (Array.isArray(fileDataArray) && fileDataArray.length > 0) {
+                const fileListContainer = doc.getElementById(fileListId);
+                if (fileListContainer) {
+                  fileListContainer.innerHTML = '';
+                  fileDataArray.forEach((fileData) => {
+                    // Handle both old format (string URL) and new format (object)
+                    let fileUrl, filename;
+                    if (typeof fileData === 'string') {
+                      fileUrl = fileData;
+                      filename = fileUrl.split('/').pop();
+                    } else if (fileData && typeof fileData === 'object') {
+                      fileUrl = fileData.url;
+                      filename = fileData.originalName || fileUrl.split('/').pop();
+                    } else {
+                      return;
+                    }
+                    
+                    if (fileUrl) {
+                      const row = doc.createElement('div');
+                      row.className = 'upload-row';
+                      
+                      const link = doc.createElement('a');
+                      link.href = fileUrl;
+                      link.target = '_blank';
+                      link.textContent = `Download ${filename}`;
+                      link.setAttribute('download', '');
+                      
+                      row.appendChild(link);
+                      fileListContainer.appendChild(row);
+                    }
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn('Error processing multi-file upload in preview:', err);
+            }
+          } else {
+            // Handle single file upload
+            let fileUrl, filename;
+            if (typeof value === 'string') {
+              try {
+                const fileData = JSON.parse(value);
+                if (typeof fileData === 'object' && fileData.url) {
+                  fileUrl = fileData.url;
+                  filename = fileData.originalName || fileUrl.split('/').pop();
+                } else {
+                  fileUrl = value;
+                  filename = fileUrl.split('/').pop();
+                }
+              } catch {
                 fileUrl = value;
                 filename = fileUrl.split('/').pop();
               }
-            } catch {
+            } else {
               fileUrl = value;
               filename = fileUrl.split('/').pop();
             }
-          } else {
-            fileUrl = value;
-            filename = fileUrl.split('/').pop();
-          }
-          
-          // Set up download link to open in new tab
-          if (downloadLinkId && fileUrl) {
-            const downloadLink = doc.getElementById(downloadLinkId);
-            if (downloadLink) {
-              downloadLink.href = fileUrl;
-              downloadLink.textContent = `Download ${filename}`;
-              downloadLink.setAttribute('target', '_blank');
-              downloadLink.style.display = 'inline-block';
-              if (!downloadLink.hasAttribute('download')) {
-                downloadLink.setAttribute('download', '');
+            
+            // Set up download link to open in new tab
+            if (downloadLinkId && fileUrl) {
+              const downloadLink = doc.getElementById(downloadLinkId);
+              if (downloadLink) {
+                downloadLink.href = fileUrl;
+                downloadLink.textContent = `Download ${filename}`;
+                downloadLink.setAttribute('target', '_blank');
+                downloadLink.style.display = 'inline-block';
+                if (!downloadLink.hasAttribute('download')) {
+                  downloadLink.setAttribute('download', '');
+                }
               }
             }
           }
         }
-      }
-      
-      if (fileType === 'image' && targetElementId && inputName && submission.metadata) {
-        const fieldMeta = submission.metadata[inputName];
-        if (fieldMeta && fieldMeta.fileData && typeof fieldMeta.fileData === 'string' && fieldMeta.fileData.startsWith('data:image')) {
-          const targetImg = doc.getElementById(targetElementId);
-          if (targetImg) {
-            targetImg.src = fieldMeta.fileData;
-            targetImg.style.display = 'block';
+        
+        if (fileType === 'image' && targetElementId && inputName && submission.metadata) {
+          const fieldMeta = submission.metadata[inputName];
+          if (fieldMeta && fieldMeta.fileData && typeof fieldMeta.fileData === 'string' && fieldMeta.fileData.startsWith('data:image')) {
+            const targetImg = doc.getElementById(targetElementId);
+            if (targetImg) {
+              targetImg.src = fieldMeta.fileData;
+              targetImg.style.display = 'block';
+            }
           }
         }
-      }
-    });
+      });
+    }
     
     // Also ensure all download links in the document open in new tab
     const allDownloadLinks = doc.querySelectorAll('a[href*="/uploads/"], a[id*="download"]');

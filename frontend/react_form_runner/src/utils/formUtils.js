@@ -148,31 +148,82 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
     
     const container = tempDiv;
     
+    // Ensure form controls have both id and name attributes (set one from the other if needed)
+    // If id is present without name, set name=id
+    // If name is present without id, set id=name
+    const allControls = container.querySelectorAll('input, select, textarea');
+    allControls.forEach((el) => {
+      const id = el.id || el.getAttribute('id');
+      const name = el.name || el.getAttribute('name');
+      
+      // If id is present but name is not, set name=id
+      if (id && !name) {
+        el.setAttribute('name', id);
+        el.name = id;
+      }
+      
+      // If name is present but id is not, set id=name
+      if (name && !id) {
+        el.setAttribute('id', name);
+        el.id = name;
+      }
+    });
+    
     // Fill in values for all form controls
     const controls = container.querySelectorAll('input, select, textarea');
     controls.forEach((el) => {
-      const key = el.id || el.name;
+      // Use id as primary key, fall back to name (should both exist now)
+      const key = el.id || el.name || el.getAttribute('id') || el.getAttribute('name');
       if (!key || key === 'submission-comments' || key.startsWith('submission-')) {
         return;
       }
       
       // Skip file inputs - they can't have values set programmatically
       if (el.type === 'file') {
-        // Hide file inputs
-        el.style.display = 'none';
+        // Hide file inputs by setting style attribute (so it's preserved in innerHTML)
+        el.setAttribute('style', 'display: none;');
         return;
       }
       
+      // Handle hidden inputs - set their values but don't add form-control class
+      if (el.type === 'hidden') {
+        // Set the value if it exists in the values object
+        if (key && key in values) {
+          const valueToSet = values[key];
+          el.value = valueToSet;
+          el.setAttribute('value', valueToSet);
+          console.log('Set hidden input value:', key, '=', valueToSet);
+        }
+        return;
+      }
+      
+      // Inject class="form-control" if not present
+      if (!el.classList.contains('form-control')) {
+        const existingClasses = el.className || '';
+        el.className = existingClasses ? `${existingClasses} form-control` : 'form-control';
+      }
+      
       // Set the value if it exists in the values object
-      if (key in values) {
+      if (key && key in values) {
         el.value = values[key];
         // Also set the value attribute to ensure it's preserved in innerHTML
         el.setAttribute('value', values[key]);
+      } else if (key) {
+        // Debug: log if key exists but value not found
+        console.warn(`generateSubmissionHtml: Key "${key}" not found in values object`, {
+          availableKeys: Object.keys(values),
+          elementId: el.id,
+          elementName: el.name
+        });
       }
       
-      // Make fields readonly/disabled to show they're submitted values
+      // Make fields readonly to show they're submitted values
+      // Note: Don't set disabled - disabled inputs don't serialize their values in innerHTML
       el.setAttribute('readonly', 'true');
-      el.setAttribute('disabled', 'true');
+      // Remove disabled if present, as it prevents value serialization
+      if (el.hasAttribute('disabled')) {
+        el.removeAttribute('disabled');
+      }
       
       // Add result badge if present in metadata
       const fieldMeta = metadata && metadata[key];
@@ -200,11 +251,22 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
     // Handle file inputs - show download links for uploaded files
     const fileInputs = container.querySelectorAll('input[type="file"]');
     fileInputs.forEach((fileInput) => {
-      const key = fileInput.id || fileInput.name;
-      if (!key) return;
+      // Hide the file input by setting style attribute (so it's preserved in innerHTML)
+      fileInput.setAttribute('style', 'display: none;');
       
-      // Hide the file input
-      fileInput.style.display = 'none';
+      // Get the key from id, name, or data-upload-target attribute
+      let key = fileInput.id || fileInput.name;
+      if (!key) {
+        // Try to get key from data-upload-target (for file uploads)
+        const uploadTarget = fileInput.getAttribute('data-upload-target');
+        if (uploadTarget) {
+          key = uploadTarget;
+        } else {
+          return; // No way to identify this file input
+        }
+      }
+      
+      console.log('Processing file input, key:', key, 'value exists:', key in values);
       
       // Check if we have a value for this file input
       if (key in values && values[key]) {
@@ -315,13 +377,20 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
             const downloadLink = container.querySelector(`#${downloadLinkId}`);
             if (downloadLink) {
               downloadLink.href = fileUrl;
+              downloadLink.setAttribute('href', fileUrl); // Also set as attribute to ensure it's in innerHTML
               downloadLink.textContent = `Download ${filename}`;
+              // Remove existing style attribute and set new one to ensure display is visible
+              downloadLink.removeAttribute('style');
               downloadLink.style.display = 'inline-block';
+              // Also set as attribute to ensure it's preserved in innerHTML
+              downloadLink.setAttribute('style', 'display: inline-block;');
               downloadLink.setAttribute('target', '_blank');
               // Ensure it has download attribute for proper file download behavior
               if (!downloadLink.hasAttribute('download')) {
                 downloadLink.setAttribute('download', '');
               }
+            } else {
+              console.warn(`Download link #${downloadLinkId} not found in container`);
             }
           }
         }
@@ -401,14 +470,21 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
     // Return the HTML string from the container
     let result = container.innerHTML;
     
-    // Debug: log container state
+    // Debug: log container state if empty
     if (!result || result.trim() === '') {
       console.warn('generateSubmissionHtml: container.innerHTML was empty', {
         containerChildren: container.children.length,
+        containerHTML: container.outerHTML.substring(0, 300),
         htmlContent: htmlContent.substring(0, 200)
       });
       // If innerHTML is empty, try to get the HTML differently
-      result = htmlContent;
+      // Sometimes innerHTML can be empty if all children are removed, so use outerHTML and extract content
+      if (container.children.length > 0) {
+        // Build HTML from children
+        result = Array.from(container.children).map(child => child.outerHTML).join('');
+      } else {
+        result = htmlContent;
+      }
     }
     
     // If still empty, return the original formHtml
@@ -417,9 +493,10 @@ export function generateSubmissionHtml(formHtml, values, metadata) {
       return formHtml;
     }
     
+    console.log('generateSubmissionHtml: returning result, length:', result.length);
     return result;
   } catch (err) {
-    console.error('Error generating submission HTML:', err, formHtml);
+    console.error('Error generating submission HTML:', err, err.stack, formHtml);
     return formHtml; // Return original HTML on error
   }
 }

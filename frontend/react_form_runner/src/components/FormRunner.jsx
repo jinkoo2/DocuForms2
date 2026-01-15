@@ -97,13 +97,25 @@ function FormRunner({ formId }) {
       const commentsTextarea = document.getElementById('submission-comments');
       const commentsValue = commentsTextarea ? commentsTextarea.value.trim() : '';
       
+      // Fetch the form HTML fresh to ensure we have the correct form (formDef might be stale)
+      // This ensures we always use the correct form HTML even if the user switched forms
+      let formHtmlForSubmission = '';
+      try {
+        const currentFormData = await fetchForm(formId);
+        formHtmlForSubmission = currentFormData?.html || '';
+        console.log('Fetched form HTML for submission, formId:', formId, 'html length:', formHtmlForSubmission.length);
+      } catch (err) {
+        console.error('Error fetching form HTML for submission, using formDef:', err);
+        // Fallback to formDef if fetch fails
+        formHtmlForSubmission = formDef?.html || '';
+      }
+      
       // Generate submission HTML with filled values
-      const originalHtml = formDef?.html || '';
-      console.log('Generating submissionHtml from:', originalHtml);
+      console.log('Generating submissionHtml from formId:', formId, 'html length:', formHtmlForSubmission.length);
       console.log('With values:', values);
       console.log('With metadata:', metadata);
-      const submissionHtml = generateSubmissionHtml(originalHtml, values, metadata);
-      console.log('Generated submissionHtml:', submissionHtml);
+      const submissionHtml = generateSubmissionHtml(formHtmlForSubmission, values, metadata);
+      console.log('Generated submissionHtml length:', submissionHtml.length);
       
       const submission = {
         values,
@@ -194,6 +206,55 @@ function FormRunner({ formId }) {
           }
           fieldsRef.current.innerHTML = htmlContent;
           
+          // Ensure form controls have both id and name attributes (set one from the other if needed)
+          // If id is present without name, set name=id
+          // If name is present without id, set id=name
+          const formControls = fieldsRef.current.querySelectorAll('input, select, textarea');
+          
+          formControls.forEach((control) => {
+            const id = control.id || control.getAttribute('id');
+            const name = control.name || control.getAttribute('name');
+            
+            // If id is present but name is not, set name=id
+            if (id && !name) {
+              control.setAttribute('name', id);
+              control.name = id;
+            }
+            
+            // If name is present but id is not, set id=name
+            if (name && !id) {
+              control.setAttribute('id', name);
+              control.id = name;
+            }
+          });
+          
+          // Inject class="form-control" to all form controls if not present
+          // Also inject oninput="eval_form(this)" for all input and textarea controls if not present
+          // Also inject onchange="eval_form(this)" for all form controls if not present
+          formControls.forEach((control) => {
+            // Skip file inputs and hidden inputs
+            if (control.type === 'file' || control.type === 'hidden') {
+              return;
+            }
+            
+            // Check if form-control class is already present
+            if (!control.classList.contains('form-control')) {
+              // Add form-control class, preserving existing classes
+              const existingClasses = control.className || '';
+              control.className = existingClasses ? `${existingClasses} form-control` : 'form-control';
+            }
+            
+            // Inject oninput="eval_form(this)" for input and textarea if handler is not already present
+            if ((control.tagName === 'INPUT' || control.tagName === 'TEXTAREA') && !control.hasAttribute('oninput')) {
+              control.setAttribute('oninput', 'eval_form(this)');
+            }
+            
+            // Inject onchange="eval_form(this)" for all form controls if handler is not already present
+            if (!control.hasAttribute('onchange')) {
+              control.setAttribute('onchange', 'eval_form(this)');
+            }
+          });
+          
           // Make baseline available globally for form scripts
           window.baselineSubmission = baseline;
           
@@ -278,6 +339,43 @@ function FormRunner({ formId }) {
               }
             }, 100);
           }
+          
+          // Initialize image preview handlers for file inputs with data-file-type="image"
+          setTimeout(() => {
+            try {
+              if (fieldsRef.current) {
+                const imageFileInputs = fieldsRef.current.querySelectorAll('input[type="file"][data-file-type="image"][data-file-target-element-id]');
+                
+                imageFileInputs.forEach(input => {
+                  // Skip if already has an onchange handler
+                  if (input.hasAttribute('onchange') && input.getAttribute('onchange').trim()) {
+                    return;
+                  }
+                  
+                  const targetId = input.getAttribute('data-file-target-element-id');
+                  if (!targetId) return;
+                  
+                  // Attach the handler
+                  input.addEventListener('change', function() {
+                    const img = document.getElementById(targetId);
+                    const file = this.files[0];
+                    if (!file || !img) return;
+
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                      img.src = e.target.result;
+                      img.style.display = 'block';
+                      // Store base64 data in data attribute for database submission
+                      this.setAttribute('data-file-data', e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                  });
+                });
+              }
+            } catch (err) {
+              console.error('Error initializing image preview handlers:', err);
+            }
+          }, 100);
         }
       }, 0);
       

@@ -12,6 +12,7 @@ function FormBuilder() {
   const [formName, setFormName] = useState('');
   const [html, setHtml] = useState('');
   const [loading, setLoading] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
   const autoSaveTimeoutRef = useRef(null);
 
   const autoSave = React.useCallback(async () => {
@@ -155,7 +156,8 @@ function FormBuilder() {
       clearTimeout(autoSaveTimeoutRef.current);
     }
     
-    if (formId && html.trim()) {
+    // Only auto-save if enabled and we have formId and html
+    if (autoSaveEnabled && formId && html.trim()) {
       autoSaveTimeoutRef.current = setTimeout(() => {
         autoSave();
       }, 2000); // Auto-save after 2 seconds of inactivity
@@ -166,7 +168,7 @@ function FormBuilder() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [html, formName, formId, autoSave]);
+  }, [html, formName, formId, autoSave, autoSaveEnabled]);
 
   const handleSave = async () => {
     if (!formId) {
@@ -224,9 +226,20 @@ function FormBuilder() {
             <span className="navbar-toggler-icon"></span>
           </button>
           <div className="collapse navbar-collapse" id="navbarNav">
-            <ul className="navbar-nav ms-auto">
-              <li className="nav-item">
-                <span className="nav-link active">Editor</span>
+            <ul className="navbar-nav ms-auto align-items-center">
+              <li className="nav-item d-flex align-items-center">
+                <label className="form-check-label text-light me-2" htmlFor="auto-save-toggle" style={{ cursor: 'pointer' }}>
+                  Auto Save
+                </label>
+                <div className="form-check form-switch">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="auto-save-toggle"
+                    checked={autoSaveEnabled}
+                    onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                  />
+                </div>
               </li>
               <li className="nav-item ms-2">
                 <a className="btn btn-outline-light btn-sm" href="/">Form Runner</a>
