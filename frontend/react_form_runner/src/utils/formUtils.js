@@ -21,8 +21,9 @@ export function getFormValues(formElement) {
   // Collect from all form controls using id as the key (or name if id is not available)
   const controls = formElement.querySelectorAll('input, select, textarea');
   
-  // First, identify all hidden inputs that are targets for checkbox groups
+  // First, identify all hidden inputs that are targets for checkbox or radio groups
   const checkboxGroupTargets = new Set();
+  const radioGroupTargets = new Set();
   formElement.querySelectorAll('input[type="hidden"]').forEach(hidden => {
     const hiddenId = hidden.id || hidden.name;
     if (hiddenId) {
@@ -30,6 +31,15 @@ export function getFormValues(formElement) {
       const relatedCheckboxes = formElement.querySelectorAll(`input[type="checkbox"][id^="${hiddenId}_"]`);
       if (relatedCheckboxes.length > 0) {
         checkboxGroupTargets.add(hiddenId);
+      }
+      // Check if there's a container with radio buttons
+      const containerId = `${hiddenId}_group`;
+      const container = formElement.querySelector(`#${containerId}`);
+      if (container) {
+        const radios = container.querySelectorAll('input[type="radio"]');
+        if (radios.length > 0) {
+          radioGroupTargets.add(hiddenId);
+        }
       }
     }
   });
@@ -54,6 +64,19 @@ export function getFormValues(formElement) {
       for (const targetId of checkboxGroupTargets) {
         if (key.startsWith(`${targetId}_`)) {
           return; // Skip this checkbox - it's part of a group
+        }
+      }
+    }
+    
+    // Skip individual radio buttons that are part of a radio group
+    // Radio buttons are grouped by name, and the value is stored in a hidden input
+    if (el.type === 'radio' && key) {
+      for (const targetId of radioGroupTargets) {
+        // Check if this radio is in the group container
+        const containerId = `${targetId}_group`;
+        const container = formElement.querySelector(`#${containerId}`);
+        if (container && container.contains(el)) {
+          return; // Skip this radio - it's part of a group
         }
       }
     }

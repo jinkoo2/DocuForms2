@@ -81,15 +81,29 @@ function FormRunner({ formId }) {
     }
 
     // Check HTML5 form validation before submitting
-    // Also manually check all required hidden inputs for checkbox groups
+    // Also manually check all required hidden inputs for checkbox/radio groups
     const requiredHiddenInputs = formRef.current.querySelectorAll('input[type="hidden"][required]');
-    let hasInvalidRequiredCheckboxGroup = false;
+    let hasInvalidRequiredGroup = false;
     
     requiredHiddenInputs.forEach(hidden => {
+      // Check if this is a radio group (single value) or checkbox group (array)
+      const hiddenId = hidden.id || hidden.name;
+      let isRadioGroup = false;
+      if (hiddenId) {
+        const containerId = `${hiddenId}_group`;
+        const container = formRef.current.querySelector(`#${containerId}`);
+        if (container) {
+          const radios = container.querySelectorAll('input[type="radio"]');
+          isRadioGroup = radios.length > 0;
+        }
+      }
+      
+      const errorMessage = isRadioGroup ? 'Please select an option.' : 'Please select at least one option.';
+      
       if (!hidden.value || hidden.value.trim() === '') {
         // Set custom validity if not already set
         if (hidden.validationMessage === '') {
-          hidden.setCustomValidity('Please select at least one option.');
+          hidden.setCustomValidity(errorMessage);
         }
         // Add is-invalid class for Bootstrap styling
         hidden.classList.add('is-invalid');
@@ -133,7 +147,7 @@ function FormRunner({ formId }) {
         if (feedback) {
           // Ensure the feedback div has text content
           if (!feedback.textContent || feedback.textContent.trim() === '') {
-            feedback.textContent = 'Please select at least one option.';
+            feedback.textContent = errorMessage;
           }
           
           // Force display with !important to override Bootstrap's default display: none
@@ -185,12 +199,37 @@ function FormRunner({ formId }) {
           formRef.current.classList.add('was-validated');
         }
         
-        hasInvalidRequiredCheckboxGroup = true;
-        console.log('Found invalid required checkbox group:', hidden.id || hidden.name);
+        hasInvalidRequiredGroup = true;
+        console.log('Found invalid required checkbox/radio group:', hidden.id || hidden.name);
       }
     });
     
-    if (!formRef.current.checkValidity() || hasInvalidRequiredCheckboxGroup) {
+    // Re-check required hidden inputs right before validation (in case they were updated)
+    // This ensures radio/checkbox groups have their values set correctly
+    const allRequiredHidden = formRef.current.querySelectorAll('input[type="hidden"][required]');
+    allRequiredHidden.forEach(hidden => {
+      const hiddenId = hidden.id || hidden.name;
+      if (!hiddenId) return;
+      
+      // Check if this is a radio group
+      const containerId = `${hiddenId}_group`;
+      const container = formRef.current.querySelector(`#${containerId}`);
+      if (container) {
+        const radios = container.querySelectorAll('input[type="radio"]');
+        if (radios.length > 0) {
+          // Radio group - check if any radio is selected
+          const checked = container.querySelector('input[type="radio"]:checked');
+          if (checked) {
+            hidden.value = checked.value;
+            hidden.setAttribute('value', checked.value);
+            hidden.setCustomValidity('');
+            hidden.classList.remove('is-invalid');
+          }
+        }
+      }
+    });
+    
+    if (!formRef.current.checkValidity() || hasInvalidRequiredGroup) {
       // Form is invalid - trigger browser validation UI
       formRef.current.reportValidity();
       // Also manually report validity on invalid hidden inputs
@@ -528,6 +567,14 @@ function FormRunner({ formId }) {
                   // Use checkboxes found by ID prefix, or fall back to container checkboxes
                   const checkboxes = checkboxesById.length > 0 ? checkboxesById : checkboxesInContainer;
                   
+                  // Skip if this is a radio group (handled separately)
+                  if (container) {
+                    const hasRadios = container.querySelectorAll('input[type="radio"]').length > 0;
+                    if (hasRadios) {
+                      return; // Skip - this will be handled by radio group initialization
+                    }
+                  }
+                  
                   if (checkboxes.length > 0) {
                     // Check if the hidden input has required attribute
                     const isRequired = hidden.hasAttribute('required');
@@ -634,6 +681,125 @@ function FormRunner({ formId }) {
               }
             } catch (err) {
               console.error('Error initializing checkbox groups:', err);
+            }
+          }, 100);
+          
+          // Initialize radio button groups (radios that sync to hidden inputs)
+          setTimeout(() => {
+            try {
+              if (fieldsRef.current) {
+                // Find all hidden inputs that might be targets for radio groups
+                const hiddenInputs = fieldsRef.current.querySelectorAll('input[type="hidden"]');
+                
+                hiddenInputs.forEach(hidden => {
+                  const hiddenId = hidden.id || hidden.name;
+                  if (!hiddenId) return;
+                  
+                  // Look for a container with id ending in "_group" that contains radio buttons
+                  const containerId = `${hiddenId}_group`;
+                  const container = document.getElementById(containerId);
+                  
+                  if (container) {
+                    // Find all radio buttons within this container
+                    const radios = container.querySelectorAll('input[type="radio"]');
+                    
+                    if (radios.length > 0) {
+                      // Check if the hidden input has required attribute
+                      const isRequired = hidden.hasAttribute('required');
+                      
+                      console.log(`Initializing radio group: hiddenId=${hiddenId}, isRequired=${isRequired}, radios found=${radios.length}`);
+                      
+                      // Find the invalid-feedback div
+                      const findInvalidFeedback = () => {
+                        let feedback = hidden.nextElementSibling;
+                        while (feedback) {
+                          if (feedback.classList && feedback.classList.contains('invalid-feedback')) {
+                            return feedback;
+                          }
+                          feedback = feedback.nextElementSibling;
+                        }
+                        const parent = hidden.parentElement;
+                        if (parent) {
+                          return parent.querySelector('.invalid-feedback');
+                        }
+                        return null;
+                      };
+                      const invalidFeedback = findInvalidFeedback();
+                      console.log(`Found invalid-feedback div for radio group ${hiddenId}:`, invalidFeedback ? 'YES' : 'NO');
+                      
+                      // Bind the radio group to the hidden input
+                      const update = () => {
+                        const checked = container.querySelector('input[type="radio"]:checked');
+                        const value = checked ? checked.value : '';
+                        
+                        console.log(`Radio group update: hiddenId=${hiddenId}, checked value=`, value);
+                        
+                        // If required and no radio is selected, set empty string
+                        // Otherwise, set the selected value
+                        if (isRequired && !value) {
+                          hidden.value = '';
+                          hidden.setAttribute('value', '');
+                          // Mark as invalid for HTML5 validation
+                          hidden.setCustomValidity('Please select an option.');
+                          // Add is-invalid class for Bootstrap styling
+                          hidden.classList.add('is-invalid');
+                          // Show invalid-feedback div
+                          if (invalidFeedback) {
+                            if (!invalidFeedback.textContent || invalidFeedback.textContent.trim() === '') {
+                              invalidFeedback.textContent = 'Please select an option.';
+                            }
+                            invalidFeedback.style.setProperty('display', 'block', 'important');
+                            invalidFeedback.style.setProperty('width', '100%', 'important');
+                            invalidFeedback.style.setProperty('margin-top', '0.25rem', 'important');
+                            invalidFeedback.style.setProperty('font-size', '0.875em', 'important');
+                            invalidFeedback.style.setProperty('color', '#dc3545', 'important');
+                            invalidFeedback.style.setProperty('opacity', '1', 'important');
+                            invalidFeedback.style.setProperty('visibility', 'visible', 'important');
+                            invalidFeedback.classList.add('d-block');
+                          }
+                          // Add was-validated class to parent for Bootstrap
+                          const parent = hidden.parentElement;
+                          if (parent && parent.classList) {
+                            parent.classList.add('was-validated');
+                          }
+                          if (container && container.parentElement) {
+                            container.parentElement.classList.add('was-validated');
+                          }
+                        } else {
+                          hidden.value = value;
+                          hidden.setAttribute('value', value);
+                          // Clear any custom validity message
+                          hidden.setCustomValidity('');
+                          // Remove is-invalid class
+                          hidden.classList.remove('is-invalid');
+                          // Hide invalid-feedback div
+                          if (invalidFeedback) {
+                            invalidFeedback.style.display = 'none';
+                          }
+                          // Remove was-validated class from parent
+                          const parent = hidden.parentElement;
+                          if (parent && parent.classList) {
+                            parent.classList.remove('was-validated');
+                          }
+                          if (container && container.parentElement) {
+                            container.parentElement.classList.remove('was-validated');
+                          }
+                        }
+                      };
+                      
+                      // Add change listeners to all radio buttons in the group
+                      radios.forEach(radio => {
+                        radio.addEventListener('change', update);
+                      });
+                      
+                      // Initial update - this will set validation state
+                      update();
+                    }
+                  }
+                });
+              }
+            } catch (err) {
+              console.error('Error initializing radio groups:', err);
             }
           }, 100);
         }

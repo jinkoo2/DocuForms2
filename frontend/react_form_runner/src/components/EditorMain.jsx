@@ -179,66 +179,77 @@ function EditorMain({ html, onHtmlChange, loading }) {
               }
             }
 
-            // Initialize checkbox groups (checkboxes that sync to hidden inputs)
+            // Initialize checkbox and radio groups (that sync to hidden inputs)
             if (iframeWindow && iframeWindow.document) {
               try {
                 const doc = iframeWindow.document;
-                // Find all hidden inputs that might be targets for checkbox groups
+                // Find all hidden inputs that might be targets for checkbox/radio groups
                 const hiddenInputs = doc.querySelectorAll('input[type="hidden"]');
                 
                 hiddenInputs.forEach(hidden => {
                   const hiddenId = hidden.id || hidden.name;
                   if (!hiddenId) return;
                   
-                  // Strategy 1: Look for checkboxes with IDs starting with hiddenId + "_"
-                  // e.g., hidden id="choice1" -> checkboxes id="choice1_one", "choice1_two", etc.
-                  const checkboxesById = doc.querySelectorAll(`input[type="checkbox"][id^="${hiddenId}_"]`);
-                  
-                  // Strategy 2: Look for a container with id ending in "_group"
-                  // e.g., hidden id="choice1" -> container id="choice1_group"
+                  // Look for a container with id ending in "_group"
                   const containerId = `${hiddenId}_group`;
                   const container = doc.getElementById(containerId);
-                  const checkboxesInContainer = container ? container.querySelectorAll('input[type="checkbox"]') : [];
                   
-                  // Use checkboxes found by ID prefix, or fall back to container checkboxes
-                  const checkboxes = checkboxesById.length > 0 ? checkboxesById : checkboxesInContainer;
-                  
-                  if (checkboxes.length > 0) {
-                    // Check if the hidden input has required attribute
-                    const isRequired = hidden.hasAttribute('required');
+                  if (container) {
+                    // Check if it's a radio group
+                    const radios = container.querySelectorAll('input[type="radio"]');
+                    if (radios.length > 0) {
+                      // Radio group
+                      const isRequired = hidden.hasAttribute('required');
+                      const update = () => {
+                        const checked = container.querySelector('input[type="radio"]:checked');
+                        const value = checked ? checked.value : '';
+                        if (isRequired && !value) {
+                          hidden.value = '';
+                          hidden.setAttribute('value', '');
+                          hidden.setCustomValidity('Please select an option.');
+                        } else {
+                          hidden.value = value;
+                          hidden.setAttribute('value', value);
+                          hidden.setCustomValidity('');
+                        }
+                      };
+                      radios.forEach(radio => {
+                        radio.addEventListener('change', update);
+                      });
+                      update();
+                      return; // Skip checkbox handling
+                    }
                     
-                    // Bind the checkbox group to the hidden input
-                    const update = () => {
-                      const values = Array.from(checkboxes)
-                        .filter(cb => cb.checked)
-                        .map(cb => cb.value);
-                      
-                      // If required and no checkboxes are selected, set empty string
-                      // Otherwise, set JSON array
-                      if (isRequired && values.length === 0) {
-                        hidden.value = '';
-                        hidden.setAttribute('value', '');
-                        // Mark as invalid for HTML5 validation
-                        hidden.setCustomValidity('Please select at least one option.');
-                      } else {
-                        hidden.value = JSON.stringify(values);
-                        hidden.setAttribute('value', hidden.value);
-                        // Clear any custom validity message
-                        hidden.setCustomValidity('');
-                      }
-                    };
+                    // Checkbox group
+                    const checkboxesById = doc.querySelectorAll(`input[type="checkbox"][id^="${hiddenId}_"]`);
+                    const checkboxesInContainer = container.querySelectorAll('input[type="checkbox"]');
+                    const checkboxes = checkboxesById.length > 0 ? checkboxesById : checkboxesInContainer;
                     
-                    // Add change listeners to all checkboxes in the group
-                    checkboxes.forEach(checkbox => {
-                      checkbox.addEventListener('change', update);
-                    });
-                    
-                    // Initial update
-                    update();
+                    if (checkboxes.length > 0) {
+                      const isRequired = hidden.hasAttribute('required');
+                      const update = () => {
+                        const values = Array.from(checkboxes)
+                          .filter(cb => cb.checked)
+                          .map(cb => cb.value);
+                        if (isRequired && values.length === 0) {
+                          hidden.value = '';
+                          hidden.setAttribute('value', '');
+                          hidden.setCustomValidity('Please select at least one option.');
+                        } else {
+                          hidden.value = JSON.stringify(values);
+                          hidden.setAttribute('value', hidden.value);
+                          hidden.setCustomValidity('');
+                        }
+                      };
+                      checkboxes.forEach(checkbox => {
+                        checkbox.addEventListener('change', update);
+                      });
+                      update();
+                    }
                   }
                 });
               } catch (err) {
-                console.error('Error initializing checkbox groups in preview:', err);
+                console.error('Error initializing checkbox/radio groups in preview:', err);
               }
             }
 
