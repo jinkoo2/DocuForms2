@@ -50,14 +50,17 @@ function EditorMain({ html, onHtmlChange, loading }) {
       </html>
     `;
 
-    const doc = previewFrameRef.current.contentDocument || previewFrameRef.current.contentWindow.document;
+    if (!previewFrameRef.current) return;
+    const doc = previewFrameRef.current.contentDocument || previewFrameRef.current.contentWindow?.document;
+    if (!doc) return;
     doc.open();
     doc.write(fullHtml);
     doc.close();
 
     // Function to initialize form preview (same logic as FormRunner)
     const initializePreview = () => {
-      const iframeDoc = previewFrameRef.current.contentDocument || previewFrameRef.current.contentWindow.document;
+      if (!previewFrameRef.current) return;
+      const iframeDoc = previewFrameRef.current.contentDocument || previewFrameRef.current.contentWindow?.document;
       if (!iframeDoc) return;
 
       const formElement = iframeDoc.getElementById('form');

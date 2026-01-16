@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchSubmissions, deleteSubmission, setBaseline } from '../utils/api';
+import { fetchSubmissions, deleteSubmission, setBaseline, BACKEND_URL } from '../utils/api';
 import SubmissionPreview from './SubmissionPreview';
 import PlotModal from './PlotModal';
 
@@ -17,6 +17,12 @@ function SubmissionsList({ formId }) {
     try {
       setLoading(true);
       const data = await fetchSubmissions(formId);
+      console.log('Loaded submissions:', JSON.stringify(data, null, 2));
+      if (data && data.length > 0) {
+        data.forEach((sub, idx) => {
+          console.log(`Submission ${idx} attachment:`, sub.attachment, 'type:', typeof sub.attachment);
+        });
+      }
       setSubmissions(data || []);
     } catch (err) {
       console.error('Error loading submissions:', err);
@@ -103,6 +109,7 @@ function SubmissionsList({ formId }) {
                 <th scope="col">Date/Time</th>
                 <th scope="col">Result</th>
                 <th scope="col">Comments</th>
+                <th scope="col">Attachment</th>
                 <th scope="col" className="text-center">Baseline</th>
                 <th scope="col">Commands</th>
               </tr>
@@ -117,6 +124,30 @@ function SubmissionsList({ formId }) {
                   result === 'FAIL' ? 'bg-danger' : 'bg-secondary';
                 const comments = (s.comments || '').trim();
                 const isBaseline = s.baseline || false;
+                const attachment = s.attachment || null;
+                
+                // Extensive debugging
+                if (s.id || s._id) {
+                  console.log(`[SUBMISSION DEBUG] ID: ${s.id || s._id}`);
+                  console.log(`  - attachment exists: ${!!attachment}`);
+                  console.log(`  - attachment value:`, attachment);
+                  console.log(`  - attachment type:`, typeof attachment);
+                  if (attachment && typeof attachment === 'object') {
+                    console.log(`  - attachment keys:`, Object.keys(attachment));
+                    console.log(`  - attachment.url:`, attachment.url);
+                    console.log(`  - attachment.originalName:`, attachment.originalName);
+                  }
+                  console.log(`  - Full submission object:`, s);
+                }
+                
+                // Debug: log ALL submissions to see attachment data
+                console.log('Submission:', s.id, 'Full submission:', s);
+                console.log('Attachment value:', attachment, 'Type:', typeof attachment);
+                if (attachment) {
+                  console.log('Attachment keys:', Object.keys(attachment));
+                  console.log('Attachment.url:', attachment.url);
+                  console.log('Attachment.originalName:', attachment.originalName);
+                }
 
                 return (
                   <tr key={s.id || s._id}>
@@ -132,6 +163,28 @@ function SubmissionsList({ formId }) {
                       ) : (
                         <span className="text-muted">—</span>
                       )}
+                    </td>
+                    <td>
+                      {(() => {
+                        // Debug attachment
+                        if (attachment) {
+                          console.log('Rendering attachment for submission:', s.id, 'attachment:', attachment, 'type:', typeof attachment);
+                        }
+                        // Check if attachment exists and has url
+                        if (attachment && typeof attachment === 'object' && attachment.url) {
+                          return (
+                            <a
+                              href={`${BACKEND_URL}${attachment.url}`}
+                              target="_blank"
+                              download={attachment.originalName || 'attachment'}
+                              className="text-decoration-none"
+                            >
+                              {attachment.originalName || 'Download'}
+                            </a>
+                          );
+                        }
+                        return <span className="text-muted">—</span>;
+                      })()}
                     </td>
                     <td className="text-center">
                       <input

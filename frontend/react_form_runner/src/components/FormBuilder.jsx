@@ -92,7 +92,7 @@ function FormBuilder() {
     }
   };
 
-  const handleNewForm = async (newFormId, newFormName) => {
+  const handleNewForm = async (newFormId, newFormName, parentId = '') => {
     try {
       // Create the form in the database immediately with empty HTML
       const payload = {
@@ -101,10 +101,12 @@ function FormBuilder() {
         html: '<body></body>',
         fields: [],
         rules: [],
-        version: 1
+        version: 1,
+        type: 'form',
+        parentId: parentId || ''
       };
 
-      const res = await fetch('http://localhost:8001/api/forms', {
+      const res = await fetch(`${BACKEND_URL}/api/forms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

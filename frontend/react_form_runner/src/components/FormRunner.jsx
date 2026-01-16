@@ -16,6 +16,9 @@ function FormRunner({ formId }) {
   const [liveResult, setLiveResult] = useState('—');
   const [serverResponse, setServerResponse] = useState('');
   const [comments, setComments] = useState('');
+  const [attachment, setAttachment] = useState(null);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [attachmentName, setAttachmentName] = useState('');
   const [baselineSubmission, setBaselineSubmission] = useState(null);
   const fieldsRef = useRef(null);
   const formRef = useRef(null);
@@ -71,6 +74,49 @@ function FormRunner({ formId }) {
       }
     }, 50);
   }, [evaluateLive]);
+
+  const handleAttachmentChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setAttachment(null);
+      setAttachmentUrl('');
+      setAttachmentName('');
+      return;
+    }
+
+    try {
+      setAttachment(file);
+      setAttachmentName(file.name);
+      
+      // Upload the file
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch(`${BACKEND_URL}/api/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to upload attachment');
+      }
+
+      const data = await res.json();
+      setAttachmentUrl(data.url);
+      
+      // Also store in data attribute for reliable access during submission
+      const attachmentInput = document.getElementById('submission-attachment');
+      if (attachmentInput) {
+        attachmentInput.setAttribute('data-uploaded-url', data.url);
+        attachmentInput.setAttribute('data-uploaded-name', file.name);
+      }
+    } catch (err) {
+      alert(`Failed to upload attachment: ${err.message}`);
+      setAttachment(null);
+      setAttachmentName('');
+      setAttachmentUrl('');
+    }
+  };
 
   const handleSubmit = React.useCallback(async (e) => {
     e.preventDefault();
@@ -278,15 +324,47 @@ function FormRunner({ formId }) {
       const submissionHtml = generateSubmissionHtml(formHtmlForSubmission, values, metadata);
       console.log('Generated submissionHtml length:', submissionHtml.length);
       
+      // Read attachment data directly from the input element's data attributes
+      // This avoids closure issues with state variables
+      const attachmentInput = document.getElementById('submission-attachment');
+      let currentAttachmentUrl = '';
+      let currentAttachmentName = '';
+      
+      if (attachmentInput) {
+        const uploadedUrl = attachmentInput.getAttribute('data-uploaded-url');
+        const uploadedName = attachmentInput.getAttribute('data-uploaded-name');
+        if (uploadedUrl) {
+          currentAttachmentUrl = uploadedUrl;
+          currentAttachmentName = uploadedName || '';
+        }
+      }
+      
+      // Fallback to state if data attributes aren't set (for backwards compatibility)
+      if (!currentAttachmentUrl && attachmentUrl) {
+        currentAttachmentUrl = attachmentUrl;
+        currentAttachmentName = attachmentName || '';
+      }
+      
       const submission = {
         values,
         metadata,
         result,
         comments: commentsValue,
-        submissionHtml: submissionHtml
+        submissionHtml: submissionHtml,
+        attachment: currentAttachmentUrl ? {
+          url: currentAttachmentUrl,
+          originalName: currentAttachmentName
+        } : null
       };
 
       console.log('Submitting:', submission);
+      console.log('Attachment state at submission:', {
+        fromDataAttr: attachmentInput?.getAttribute('data-uploaded-url'),
+        fromState: attachmentUrl,
+        finalUrl: currentAttachmentUrl,
+        finalName: currentAttachmentName,
+        attachment: submission.attachment
+      });
       const data = await submitForm(formId, submission);
       setServerResponse(JSON.stringify(data, null, 2));
       setLiveResult((data.result || '').toUpperCase());
@@ -808,6 +886,12 @@ function FormRunner({ formId }) {
       setLiveResult('—');
       setServerResponse('');
       setComments('');
+      setAttachment(null);
+      setAttachmentUrl('');
+      setAttachmentName('');
+      setAttachment(null);
+      setAttachmentUrl('');
+      setAttachmentName('');
     } catch (err) {
       setError(err.message);
       console.error('Error loading form:', err);
@@ -901,6 +985,22 @@ function FormRunner({ formId }) {
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
               />
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="submission-attachment" className="form-label">Attachment</label>
+              <input
+                type="file"
+                id="submission-attachment"
+                className="form-control"
+                onChange={handleAttachmentChange}
+              />
+              {attachmentName && (
+                <div className="form-text">
+                  Selected: {attachmentName}
+                  {attachmentUrl && <span className="text-success ms-2">✓ Uploaded</span>}
+                </div>
+              )}
             </div>
 
             <button type="submit">Submit</button>

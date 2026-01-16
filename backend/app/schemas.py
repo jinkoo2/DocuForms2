@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 
@@ -9,6 +9,8 @@ class FormTemplateIn(BaseModel):
     html: str = ""
     fields: List[Dict[str, Any]] = Field(default_factory=list)
     version: int = 1
+    type: str = "form"  # "form" or "folder"
+    parentId: str = ""  # ID of parent folder, empty string for root level
 
 
 class FormTemplateOut(FormTemplateIn):
@@ -21,6 +23,7 @@ class SubmissionIn(BaseModel):
     result: str
     comments: str = ""
     submissionHtml: str = ""
+    attachment: Optional[Dict[str, str]] = None  # {url: str, originalName: str} or None
 
 
 class SubmissionOut(BaseModel):

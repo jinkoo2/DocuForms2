@@ -23,6 +23,7 @@ async def submit_form(form_id: str, submission: SubmissionIn):
         "formHtml": form.get("html", ""),
         "submissionHtml": submission.submissionHtml or "",
         "comments": submission.comments or "",
+        "attachment": submission.attachment or None,
         "submittedAt": datetime.utcnow()
     }
 
@@ -40,6 +41,10 @@ async def list_submissions(form_id: str):
     )
     async for doc in cursor:
         doc = convert_objectid_to_str(doc)
+        attachment_data = doc.get("attachment")
+        # Debug: log attachment data from database
+        if attachment_data:
+            print(f"DEBUG: Found attachment in DB: {attachment_data}, type: {type(attachment_data)}")
         submissions.append({
             "id": doc.get("_id"),
             "formId": doc.get("formId"),  # Include formId to verify it matches
@@ -51,6 +56,7 @@ async def list_submissions(form_id: str):
             "submissionHtml": doc.get("submissionHtml", ""),
             "baseline": doc.get("baseline", False),
             "comments": doc.get("comments", ""),
+            "attachment": attachment_data if attachment_data else None,
         })
     return submissions
 

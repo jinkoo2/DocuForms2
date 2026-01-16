@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { fetchForms } from '../utils/api';
+import TreeView from './TreeView';
 
 function FormList({ selectedFormId, onFormSelect }) {
-  const [forms, setForms] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadForms = async () => {
     try {
       setLoading(true);
-      const formsData = await fetchForms();
-      setForms(formsData);
+      const itemsData = await fetchForms();
+      setItems(itemsData);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -23,6 +24,12 @@ function FormList({ selectedFormId, onFormSelect }) {
   useEffect(() => {
     loadForms();
   }, []);
+
+  // Dummy handlers for read-only mode (not used but required by TreeView)
+  const handleDelete = () => {};
+  const handleNewFolder = () => {};
+  const handleNewForm = () => {};
+  const handleMove = () => {};
 
   if (loading) {
     return (
@@ -44,27 +51,20 @@ function FormList({ selectedFormId, onFormSelect }) {
         <h3>Forms</h3>
         <button onClick={loadForms} title="Refresh list">🔄</button>
       </div>
-      <div className="form-list">
+      <div className="form-list" style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
         {error ? (
-          <div className="form-list-loading" style={{ color: 'red' }}>Error: {error}</div>
-        ) : forms.length === 0 ? (
-          <div className="form-list-empty">No forms found.</div>
+          <div className="form-list-loading" style={{ color: 'red', padding: '20px' }}>Error: {error}</div>
         ) : (
-          forms.map((form) => (
-            <div
-              key={form.id}
-              className={`form-list-item ${selectedFormId === form.id ? 'active' : ''}`}
-              onClick={() => onFormSelect(form.id)}
-            >
-              <div className="form-list-item-name">{form.name || 'Untitled Form'}</div>
-              <div className="form-list-item-id">{form.id}</div>
-              {form.createdAt && (
-                <div className="form-list-item-date">
-                  {new Date(form.createdAt).toLocaleDateString()}
-                </div>
-              )}
-            </div>
-          ))
+          <TreeView
+            items={items}
+            selectedId={selectedFormId}
+            onSelect={onFormSelect}
+            onDelete={handleDelete}
+            onNewFolder={handleNewFolder}
+            onNewForm={handleNewForm}
+            onMove={handleMove}
+            readOnly={true}
+          />
         )}
       </div>
     </>
