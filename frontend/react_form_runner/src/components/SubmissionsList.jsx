@@ -20,10 +20,31 @@ function SubmissionsList({ formId }) {
       console.log('Loaded submissions:', JSON.stringify(data, null, 2));
       if (data && data.length > 0) {
         data.forEach((sub, idx) => {
-          console.log(`Submission ${idx} attachment:`, sub.attachment, 'type:', typeof sub.attachment);
+          console.log(`Submission ${idx} id:`, sub.id || sub._id, 'attachments:', sub.attachments);
         });
+        // Check for duplicates by ID
+        const ids = data.map(s => s.id || s._id);
+        const uniqueIds = new Set(ids);
+        if (ids.length !== uniqueIds.size) {
+          console.warn('Duplicate submission IDs detected!', ids);
+          // Remove duplicates, keeping the first occurrence
+          const seen = new Set();
+          const unique = data.filter(s => {
+            const id = s.id || s._id;
+            if (seen.has(id)) {
+              console.warn('Removing duplicate submission:', id);
+              return false;
+            }
+            seen.add(id);
+            return true;
+          });
+          setSubmissions(unique);
+        } else {
+          setSubmissions(data);
+        }
+      } else {
+        setSubmissions([]);
       }
-      setSubmissions(data || []);
     } catch (err) {
       console.error('Error loading submissions:', err);
       setSubmissions([]);
@@ -109,7 +130,7 @@ function SubmissionsList({ formId }) {
                 <th scope="col">Date/Time</th>
                 <th scope="col">Result</th>
                 <th scope="col">Comments</th>
-                <th scope="col">Attachment</th>
+                <th scope="col">Attachments</th>
                 <th scope="col" className="text-center">Baseline</th>
                 <th scope="col">Commands</th>
               </tr>
@@ -124,30 +145,7 @@ function SubmissionsList({ formId }) {
                   result === 'FAIL' ? 'bg-danger' : 'bg-secondary';
                 const comments = (s.comments || '').trim();
                 const isBaseline = s.baseline || false;
-                const attachment = s.attachment || null;
-                
-                // Extensive debugging
-                if (s.id || s._id) {
-                  console.log(`[SUBMISSION DEBUG] ID: ${s.id || s._id}`);
-                  console.log(`  - attachment exists: ${!!attachment}`);
-                  console.log(`  - attachment value:`, attachment);
-                  console.log(`  - attachment type:`, typeof attachment);
-                  if (attachment && typeof attachment === 'object') {
-                    console.log(`  - attachment keys:`, Object.keys(attachment));
-                    console.log(`  - attachment.url:`, attachment.url);
-                    console.log(`  - attachment.originalName:`, attachment.originalName);
-                  }
-                  console.log(`  - Full submission object:`, s);
-                }
-                
-                // Debug: log ALL submissions to see attachment data
-                console.log('Submission:', s.id, 'Full submission:', s);
-                console.log('Attachment value:', attachment, 'Type:', typeof attachment);
-                if (attachment) {
-                  console.log('Attachment keys:', Object.keys(attachment));
-                  console.log('Attachment.url:', attachment.url);
-                  console.log('Attachment.originalName:', attachment.originalName);
-                }
+                const attachmentsList = Array.isArray(s.attachments) ? s.attachments : [];
 
                 return (
                   <tr key={s.id || s._id}>
@@ -165,26 +163,24 @@ function SubmissionsList({ formId }) {
                       )}
                     </td>
                     <td>
-                      {(() => {
-                        // Debug attachment
-                        if (attachment) {
-                          console.log('Rendering attachment for submission:', s.id, 'attachment:', attachment, 'type:', typeof attachment);
-                        }
-                        // Check if attachment exists and has url
-                        if (attachment && typeof attachment === 'object' && attachment.url) {
-                          return (
-                            <a
-                              href={`${BACKEND_URL}${attachment.url}`}
-                              target="_blank"
-                              download={attachment.originalName || 'attachment'}
-                              className="text-decoration-none"
-                            >
-                              {attachment.originalName || 'Download'}
-                            </a>
-                          );
-                        }
-                        return <span className="text-muted">—</span>;
-                      })()}
+                      {attachmentsList.length > 0 ? (
+                        <div>
+                          {attachmentsList.map((att, idx) => (
+                            <div key={idx} style={{ marginBottom: idx < attachmentsList.length - 1 ? '4px' : '0' }}>
+                              <a
+                                href={`${BACKEND_URL}${att.url}`}
+                                target="_blank"
+                                download={att.originalName || 'attachment'}
+                                className="text-decoration-none"
+                              >
+                                {att.originalName || 'Download'}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
                     <td className="text-center">
                       <input
@@ -260,16 +256,32 @@ function SubmissionsList({ formId }) {
           result === 'WARNING' ? 'bg-warning text-dark' :
           result === 'FAIL' ? 'bg-danger' : 'bg-secondary';
         const comments = (s.comments || '').trim();
+        const isBaseline = s.baseline || false;
+        const attachmentsList = Array.isArray(s.attachments) ? s.attachments : [];
 
         return (
           <div key={s.id || s._id} className="card mb-2">
             <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
+              <div className="d-flex justify-content-between align-items-center mb-2">
                 <div>
                   <div className="fw-bold">Result: {result || '—'}</div>
                   <div className="text-muted small">{date}</div>
                 </div>
-                <div className={`badge ${resultBadge}`}>{result || '—'}</div>
+                <div className="d-flex align-items-center gap-2">
+                  <div className={`badge ${resultBadge}`}>{result || '—'}</div>
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={isBaseline}
+                      onChange={(e) => handleBaselineToggle(s.id || s._id, e.target.checked)}
+                      title="Baseline"
+                    />
+                    <label className="form-check-label small text-muted" style={{ marginLeft: '4px' }}>
+                      Baseline
+                    </label>
+                  </div>
+                </div>
               </div>
               {comments && (
                 <div className="mt-2 mb-2 p-2 bg-light rounded">
@@ -280,6 +292,25 @@ function SubmissionsList({ formId }) {
               <pre className="mt-2 mb-3" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                 {JSON.stringify(s.values, null, 2)}
               </pre>
+              {attachmentsList.length > 0 && (
+                <div className="mt-2 mb-2">
+                  <strong>Attachments:</strong>
+                  <div style={{ marginTop: '4px' }}>
+                    {attachmentsList.map((att, idx) => (
+                      <div key={idx} style={{ marginBottom: '4px' }}>
+                        <a
+                          href={`${BACKEND_URL}${att.url}`}
+                          target="_blank"
+                          download={att.originalName || 'attachment'}
+                          className="text-decoration-none"
+                        >
+                          {att.originalName || 'Download'}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="d-flex justify-content-end gap-2">
                 {s.formHtml && (
                   <button

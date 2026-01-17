@@ -23,7 +23,7 @@ class SubmissionIn(BaseModel):
     result: str
     comments: str = ""
     submissionHtml: str = ""
-    attachment: Optional[Dict[str, str]] = None  # {url: str, originalName: str} or None
+    attachments: Optional[List[Dict[str, str]]] = None  # List of {url: str, originalName: str} or None
 
 
 class SubmissionOut(BaseModel):

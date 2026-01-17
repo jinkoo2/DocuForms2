@@ -16,10 +16,10 @@ function FormRunner({ formId }) {
   const [liveResult, setLiveResult] = useState('—');
   const [serverResponse, setServerResponse] = useState('');
   const [comments, setComments] = useState('');
-  const [attachment, setAttachment] = useState(null);
-  const [attachmentUrl, setAttachmentUrl] = useState('');
-  const [attachmentName, setAttachmentName] = useState('');
+  const [attachments, setAttachments] = useState([]); // Array of {url, originalName}
   const [baselineSubmission, setBaselineSubmission] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false); // Use ref to avoid dependency issues
   const fieldsRef = useRef(null);
   const formRef = useRef(null);
 
@@ -76,55 +76,73 @@ function FormRunner({ formId }) {
   }, [evaluateLive]);
 
   const handleAttachmentChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setAttachment(null);
-      setAttachmentUrl('');
-      setAttachmentName('');
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
+      setAttachments([]);
+      const attachmentInput = document.getElementById('submission-attachments');
+      if (attachmentInput) {
+        attachmentInput.removeAttribute('data-uploaded-attachments');
+      }
       return;
     }
 
     try {
-      setAttachment(file);
-      setAttachmentName(file.name);
+      const uploadedAttachments = [];
       
-      // Upload the file
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const res = await fetch(`${BACKEND_URL}/api/upload`, {
-        method: 'POST',
-        body: formData
-      });
+      // Upload all files
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const res = await fetch(`${BACKEND_URL}/api/upload`, {
+          method: 'POST',
+          body: formData
+        });
 
-      if (!res.ok) {
-        throw new Error('Failed to upload attachment');
+        if (!res.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+
+        const data = await res.json();
+        uploadedAttachments.push({
+          url: data.url,
+          originalName: data.originalName || file.name
+        });
       }
-
-      const data = await res.json();
-      setAttachmentUrl(data.url);
       
-      // Also store in data attribute for reliable access during submission
-      const attachmentInput = document.getElementById('submission-attachment');
+      setAttachments(uploadedAttachments);
+      
+      // Store in data attribute for reliable access during submission
+      const attachmentInput = document.getElementById('submission-attachments');
       if (attachmentInput) {
-        attachmentInput.setAttribute('data-uploaded-url', data.url);
-        attachmentInput.setAttribute('data-uploaded-name', file.name);
+        attachmentInput.setAttribute('data-uploaded-attachments', JSON.stringify(uploadedAttachments));
       }
     } catch (err) {
-      alert(`Failed to upload attachment: ${err.message}`);
-      setAttachment(null);
-      setAttachmentName('');
-      setAttachmentUrl('');
+      alert(`Failed to upload attachments: ${err.message}`);
+      setAttachments([]);
+      const attachmentInput = document.getElementById('submission-attachments');
+      if (attachmentInput) {
+        attachmentInput.removeAttribute('data-uploaded-attachments');
+      }
     }
   };
 
   const handleSubmit = React.useCallback(async (e) => {
     e.preventDefault();
     
+    // Prevent double submission using ref to avoid dependency issues
+    if (isSubmittingRef.current) {
+      console.log('Submission already in progress, ignoring duplicate submit');
+      return;
+    }
+    
     if (!formId || !formRef.current) {
       alert('No form selected. Please select a form from the list.');
       return;
     }
+    
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
 
     // Check HTML5 form validation before submitting
     // Also manually check all required hidden inputs for checkbox/radio groups
@@ -324,25 +342,25 @@ function FormRunner({ formId }) {
       const submissionHtml = generateSubmissionHtml(formHtmlForSubmission, values, metadata);
       console.log('Generated submissionHtml length:', submissionHtml.length);
       
-      // Read attachment data directly from the input element's data attributes
+      // Read attachments data directly from the input element's data attributes
       // This avoids closure issues with state variables
-      const attachmentInput = document.getElementById('submission-attachment');
-      let currentAttachmentUrl = '';
-      let currentAttachmentName = '';
+      const attachmentInput = document.getElementById('submission-attachments');
+      let currentAttachments = [];
       
       if (attachmentInput) {
-        const uploadedUrl = attachmentInput.getAttribute('data-uploaded-url');
-        const uploadedName = attachmentInput.getAttribute('data-uploaded-name');
-        if (uploadedUrl) {
-          currentAttachmentUrl = uploadedUrl;
-          currentAttachmentName = uploadedName || '';
+        const uploadedAttachmentsJson = attachmentInput.getAttribute('data-uploaded-attachments');
+        if (uploadedAttachmentsJson) {
+          try {
+            currentAttachments = JSON.parse(uploadedAttachmentsJson);
+          } catch (err) {
+            console.error('Error parsing attachments:', err);
+          }
         }
       }
       
       // Fallback to state if data attributes aren't set (for backwards compatibility)
-      if (!currentAttachmentUrl && attachmentUrl) {
-        currentAttachmentUrl = attachmentUrl;
-        currentAttachmentName = attachmentName || '';
+      if (currentAttachments.length === 0 && attachments.length > 0) {
+        currentAttachments = attachments;
       }
       
       const submission = {
@@ -351,33 +369,37 @@ function FormRunner({ formId }) {
         result,
         comments: commentsValue,
         submissionHtml: submissionHtml,
-        attachment: currentAttachmentUrl ? {
-          url: currentAttachmentUrl,
-          originalName: currentAttachmentName
-        } : null
+        attachments: currentAttachments.length > 0 ? currentAttachments : null
       };
 
       console.log('Submitting:', submission);
-      console.log('Attachment state at submission:', {
-        fromDataAttr: attachmentInput?.getAttribute('data-uploaded-url'),
-        fromState: attachmentUrl,
-        finalUrl: currentAttachmentUrl,
-        finalName: currentAttachmentName,
-        attachment: submission.attachment
+      console.log('Attachments state at submission:', {
+        fromDataAttr: attachmentInput?.getAttribute('data-uploaded-attachments'),
+        fromState: attachments,
+        finalAttachments: currentAttachments
       });
       const data = await submitForm(formId, submission);
       setServerResponse(JSON.stringify(data, null, 2));
       setLiveResult((data.result || '').toUpperCase());
       setComments('');
+      setAttachments([]);
+      const attachmentInputReset = document.getElementById('submission-attachments');
+      if (attachmentInputReset) {
+        attachmentInputReset.value = '';
+        attachmentInputReset.removeAttribute('data-uploaded-attachments');
+      }
       
       // Reload submissions
       window.dispatchEvent(new CustomEvent('reloadSubmissions'));
     } catch (err) {
       alert(`Submission failed: ${err.message}`);
       console.error('Error submitting form:', err);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formId]); // Removed comments and liveResult from dependencies to prevent reload loop
+  }, [formId]); // Removed isSubmitting from dependencies to prevent form reload
 
   const setupFormListeners = React.useCallback(() => {
     if (!fieldsRef.current || !formRef.current) return;
@@ -502,49 +524,9 @@ function FormRunner({ formId }) {
           // Make baseline available globally for form scripts
           window.baselineSubmission = baseline;
           
-          // Create stable references for event handlers that don't depend on changing state
-          const inputHandler = () => {
-            if (fieldsRef.current) {
-              // Use the stable evaluateLive callback
-              evaluateLive();
-            }
-          };
-          
-          // Create a stable submit handler that reads current state at execution time
-          const submitHandler = (e) => {
-            e.preventDefault();
-            // Call handleSubmit which will read current state values
-            handleSubmit(e);
-          };
-          
-          // Set up event listeners directly
-          try {
-            // Remove old listeners first (if any exist)
-            const oldInputs = fieldsRef.current.querySelectorAll('input, select, textarea');
-            oldInputs.forEach(input => {
-              // We can't remove the specific handler, so we'll just add new ones
-              // The inline handlers will work alongside these
-            });
-            
-            // Set up input listeners for live evaluation
-            // Only add to inputs that don't have inline oninput handlers to avoid double execution
-            const inputs = fieldsRef.current.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-              // Don't add listener if there's already an inline oninput handler
-              // The inline handler will call eval_form, and we'll update liveResult separately
-              if (!input.getAttribute('oninput')) {
-                input.addEventListener('input', inputHandler, { passive: true });
-              }
-            });
-            
-            // Remove old submit listener
-            formRef.current.removeEventListener('submit', submitHandler);
-            
-            // Set up form submit
-            formRef.current.addEventListener('submit', submitHandler);
-          } catch (err) {
-            console.error('Error setting up form listeners:', err);
-          }
+          // Set up form listeners using the dedicated setupFormListeners function
+          // This ensures consistent handler management and prevents duplicate submissions
+          setupFormListeners();
           
           // Call eval_form to run data-script on all controls
           if (typeof window.eval_form === 'function') {
@@ -886,12 +868,12 @@ function FormRunner({ formId }) {
       setLiveResult('—');
       setServerResponse('');
       setComments('');
-      setAttachment(null);
-      setAttachmentUrl('');
-      setAttachmentName('');
-      setAttachment(null);
-      setAttachmentUrl('');
-      setAttachmentName('');
+      setAttachments([]);
+      const attachmentInputReset = document.getElementById('submission-attachments');
+      if (attachmentInputReset) {
+        attachmentInputReset.value = '';
+        attachmentInputReset.removeAttribute('data-uploaded-attachments');
+      }
     } catch (err) {
       setError(err.message);
       console.error('Error loading form:', err);
@@ -988,22 +970,25 @@ function FormRunner({ formId }) {
             </div>
 
             <div className="mb-3">
-              <label htmlFor="submission-attachment" className="form-label">Attachment</label>
+              <label htmlFor="submission-attachments" className="form-label">Attachments</label>
               <input
                 type="file"
-                id="submission-attachment"
+                id="submission-attachments"
                 className="form-control"
+                multiple
                 onChange={handleAttachmentChange}
               />
-              {attachmentName && (
+              {attachments.length > 0 && (
                 <div className="form-text">
-                  Selected: {attachmentName}
-                  {attachmentUrl && <span className="text-success ms-2">✓ Uploaded</span>}
+                  {attachments.length} file{attachments.length > 1 ? 's' : ''} selected: {attachments.map(a => a.originalName).join(', ')}
+                  <span className="text-success ms-2">✓ Uploaded</span>
                 </div>
               )}
             </div>
 
-            <button type="submit">Submit</button>
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Submitting...' : 'Submit'}
+            </button>
           </form>
 
           {serverResponse && (
