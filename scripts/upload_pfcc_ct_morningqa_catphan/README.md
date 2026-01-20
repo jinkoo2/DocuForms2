@@ -38,19 +38,19 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```bash
-python3 import_reports_to_submissions.py <base_directory>
+python import_reports_to_submissions.py <base_directory>
 ```
 
 Example:
 
 ```bash
-python3 import_reports_to_submissions.py _data/GECTSH
+python import_reports_to_submissions.py _data/GECTSH
 ```
 
 ### Command Line Options
 
 ```bash
-python3 import_reports_to_submissions.py [OPTIONS] <base_directory>
+python import_reports_to_submissions.py [OPTIONS] <base_directory>
 
 Arguments:
   base_directory          Base directory to search for cases/report.html files
@@ -66,19 +66,19 @@ Options:
 **Dry run (test without submitting):**
 
 ```bash
-python3 import_reports_to_submissions.py _data/GECTSH --dry-run
+python import_reports_to_submissions.py _data/GECTSH --dry-run
 ```
 
 **Submit to a different form:**
 
 ```bash
-python3 import_reports_to_submissions.py _data/GECTSH --form-id my_form_id
+python import_reports_to_submissions.py _data/GECTSH --form-id my_form_id
 ```
 
 **Submit to a different backend:**
 
 ```bash
-python3 import_reports_to_submissions.py _data/GECTSH --backend-url http://example.com:8001
+python import_reports_to_submissions.py _data/GECTSH --backend-url http://example.com:8001
 ```
 
 ## Directory Structure

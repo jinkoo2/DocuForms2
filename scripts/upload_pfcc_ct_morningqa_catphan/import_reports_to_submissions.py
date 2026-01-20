@@ -681,23 +681,52 @@ def submit_form(values: Dict, metadata: Dict, result: str, form_html: str, attac
         return False
 
 
+def load_config_from_json(config_path: Path) -> Dict:
+    """Load configuration from input.json file."""
+    if not config_path.exists():
+        return {}
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        return config
+    except Exception as e:
+        print(f"Warning: Could not load config from {config_path}: {e}")
+        return {}
+
+
 def main():
     """Main function to process all report files."""
     import argparse
     
     global FORM_ID, BACKEND_URL
     
+    # Try to load config from input.json (in the same directory as the script)
+    script_dir = Path(__file__).parent
+    config_path = script_dir / 'input.json'
+    config = load_config_from_json(config_path)
+    
     parser = argparse.ArgumentParser(description='Import report.html files as form submissions')
-    parser.add_argument('base_dir', type=str, help='Base directory to search for cases/report.html files')
-    parser.add_argument('--form-id', type=str, default=FORM_ID, help=f'Form ID to submit to (default: {FORM_ID})')
-    parser.add_argument('--backend-url', type=str, default=BACKEND_URL, help=f'Backend URL (default: {BACKEND_URL})')
-    parser.add_argument('--dry-run', action='store_true', help='Parse files but do not submit')
-    parser.add_argument('--first-n-cases-to-upload', type=int, default=None, help='Only process the first N cases (default: process all)')
+    parser.add_argument('base_dir', type=str, nargs='?', default=config.get('base_dir'), help='Base directory to search for cases/report.html files (can also be set in input.json)')
+    parser.add_argument('--form-id', type=str, default=config.get('form_id', FORM_ID), help=f'Form ID to submit to (default: from input.json or {FORM_ID})')
+    parser.add_argument('--backend-url', type=str, default=config.get('backend_url', BACKEND_URL), help=f'Backend URL (default: from input.json or {BACKEND_URL})')
+    parser.add_argument('--dry-run', action='store_true', help='Parse files but do not submit (can also be set in input.json)')
+    parser.add_argument('--first-n-cases-to-upload', type=int, default=config.get('first_n_cases_to_upload'), help='Only process the first N cases (default: from input.json or process all)')
     
     args = parser.parse_args()
     
+    # Command-line arguments override JSON config
     FORM_ID = args.form_id
     BACKEND_URL = args.backend_url
+    
+    # Handle dry_run: command-line flag overrides JSON config
+    dry_run = args.dry_run if args.dry_run else config.get('dry_run', False)
+    
+    # Validate base_dir
+    if not args.base_dir:
+        print("Error: base_dir is required. Provide it as a command-line argument or in input.json")
+        parser.print_help()
+        return
     
     base_dir = Path(args.base_dir)
     if not base_dir.exists():
@@ -713,13 +742,14 @@ def main():
         print("No report.html files found. Exiting.")
         return
     
-    # Limit to first N cases if specified
-    if args.first_n_cases_to_upload is not None:
-        if args.first_n_cases_to_upload > 0:
-            report_files = report_files[:args.first_n_cases_to_upload]
+    # Limit to first N cases if specified (command-line overrides JSON)
+    first_n_cases = args.first_n_cases_to_upload if args.first_n_cases_to_upload is not None else config.get('first_n_cases_to_upload')
+    if first_n_cases is not None:
+        if first_n_cases > 0:
+            report_files = report_files[:first_n_cases]
             print(f"Processing first {len(report_files)} case(s) (out of {total_files} total)")
         else:
-            print("Error: --first-n-cases-to-upload must be a positive integer")
+            print("Error: first_n_cases_to_upload must be a positive integer")
             return
     else:
         print(f"Processing all {len(report_files)} case(s)")
@@ -741,7 +771,7 @@ def main():
             case_dir = report_file.parent.parent  # report.html is in cases/XXX/3.analysis/
             
             # Create zip file of all .dcm files
-            if not args.dry_run:
+            if not dry_run:
                 # Create zip file with name input_dcm.zip in temp directory
                 temp_zip_path = Path(tempfile.gettempdir()) / f"input_dcm_{case_dir.name}.zip"
                 
@@ -772,7 +802,7 @@ def main():
             print(f"  Fields extracted: {len([k for k in values.keys() if not k.endswith('_baseline') and not k.endswith('_error')])}")
             print(f"  Overall Result: {result}")
             
-            if args.dry_run:
+            if dry_run:
                 print("  [DRY RUN] Would submit:")
                 print(f"    Values: {json.dumps(values, indent=2)}")
                 print(f"    Result: {result}")
@@ -801,7 +831,7 @@ def main():
     
     print(f"\n{'='*60}")
     print(f"Summary: {success_count} succeeded, {error_count} failed")
-    if args.dry_run:
+    if dry_run:
         print("(DRY RUN - no submissions were made)")
 
 

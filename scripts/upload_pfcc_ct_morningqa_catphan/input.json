@@ -1,0 +1,7 @@
+{
+  "backend_url": "http://localhost:8001",
+  "form_id": "ctqa_catphan_604",
+  "base_dir": "_data/GECTSH",
+  "dry_run": false,
+  "first_n_cases_to_upload": null
+}
