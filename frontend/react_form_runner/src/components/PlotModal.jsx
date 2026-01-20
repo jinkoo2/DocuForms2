@@ -16,9 +16,11 @@ function PlotModal({ fieldKey, submissions, onClose }) {
       if (val === undefined || val === null) return;
       
       const num = parseFloat(val);
-      if (!Number.isNaN(num) && s.submittedAt) {
+      // Use performedAt if present, otherwise fall back to submittedAt
+      const dateValue = s.performedAt || s.submittedAt;
+      if (!Number.isNaN(num) && dateValue) {
         points.push({
-          x: new Date(s.submittedAt),
+          x: new Date(dateValue),
           y: num
         });
       }

@@ -152,19 +152,24 @@ export function getControlMetadata(formElement) {
     if (key === 'submission-comments' || key.startsWith('submission-')) return;
     
     const datasetEntries = Object.entries(el.dataset || {});
-    if (datasetEntries.length === 0) {
-      meta[key] = {};
-      return;
+    
+    // Start with input type information
+    const fieldMeta = {
+      type: el.type || (el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : 'text')
+    };
+    
+    // Add dataset attributes
+    if (datasetEntries.length > 0) {
+      datasetEntries.forEach(([key, val]) => {
+        if (key === 'result' && typeof val === 'string') {
+          fieldMeta[key] = val.toUpperCase();
+        } else {
+          fieldMeta[key] = val;
+        }
+      });
     }
     
-    meta[key] = datasetEntries.reduce((acc, [key, val]) => {
-      if (key === 'result' && typeof val === 'string') {
-        acc[key] = val.toUpperCase();
-      } else {
-        acc[key] = val;
-      }
-      return acc;
-    }, {});
+    meta[key] = fieldMeta;
   });
   
   return meta;

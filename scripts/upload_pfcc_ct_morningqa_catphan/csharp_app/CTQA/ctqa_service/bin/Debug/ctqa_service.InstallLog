@@ -1,0 +1,30 @@
+﻿Installing assembly 'c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe'.
+Affected parameters are:
+   i = 
+   logfile = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.InstallLog
+   assemblypath = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe
+   logtoconsole = 
+Rolling back assembly 'c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe'.
+Affected parameters are:
+   i = 
+   logfile = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.InstallLog
+   assemblypath = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe
+   logtoconsole = 
+An exception occurred during the Rollback phase of the System.ServiceProcess.ServiceProcessInstaller installer.
+System.NullReferenceException: Object reference not set to an instance of an object.
+An exception occurred during the Rollback phase of the installation. This exception will be ignored and the rollback will continue. However, the machine might not fully revert to its initial state after the rollback is complete.
+Installing assembly 'c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe'.
+Affected parameters are:
+   i = 
+   logfile = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.InstallLog
+   assemblypath = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe
+   logtoconsole = 
+Installing service CTQA_Service...
+Service CTQA_Service has been successfully installed.
+Creating EventLog source CTQA_Service in log Application...
+Committing assembly 'c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe'.
+Affected parameters are:
+   i = 
+   logfile = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.InstallLog
+   assemblypath = c:\apps\CTQA\ctqa_service\bin\Debug\ctqa_service.exe
+   logtoconsole = 

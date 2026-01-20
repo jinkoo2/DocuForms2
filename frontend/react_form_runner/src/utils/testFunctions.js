@@ -84,6 +84,76 @@ function calc_percent_error({
   }
 }
 
+function calc_physical_error({
+  inputId,
+  baselineField,
+  baselineInputId,
+  outputId,
+  resultId
+}) {
+  const a = parseFloat(_eid(inputId)?.value);
+  const b = get_baseline_value(baselineField, baselineInputId);
+  const out = _eid(outputId);
+  const resultEl = resultId ? _eid(resultId) : null;
+
+  if (!out) return;
+
+  if (!isNaN(a) && b !== null) {
+    const err = a - b;
+    out.value = err.toFixed(2);
+    
+    // Calculate and set result based on error value and ranges
+    if (resultEl && out) {
+      const errorValue = err;
+      const passRangeStr = out.getAttribute('data-pass-range');
+      const warningRangeStr = out.getAttribute('data-warning-range');
+      
+      let result = 'FAIL';
+      let colorClass = 'text-danger';
+      
+      if (passRangeStr) {
+        const [min, max] = passRangeStr.split(':').map(Number);
+        if (!isNaN(min) && !isNaN(max) && errorValue >= min && errorValue <= max) {
+          result = 'PASS';
+          colorClass = 'text-success';
+        } else if (warningRangeStr) {
+          const [wMin, wMax] = warningRangeStr.split(':').map(Number);
+          if (!isNaN(wMin) && !isNaN(wMax) && errorValue >= wMin && errorValue <= wMax) {
+            result = 'WARNING';
+            colorClass = 'text-warning';
+          }
+        }
+      } else if (warningRangeStr) {
+        const [wMin, wMax] = warningRangeStr.split(':').map(Number);
+        if (!isNaN(wMin) && !isNaN(wMax) && errorValue >= wMin && errorValue <= wMax) {
+          result = 'WARNING';
+          colorClass = 'text-warning';
+        }
+      }
+      
+      resultEl.textContent = result;
+      resultEl.setAttribute('data-result', result);
+      resultEl.className = 'input-group-text fw-bold ' + colorClass;
+    }
+    
+    // Also trigger test_input_pass_warning_fail to ensure consistency
+    if (out) {
+      test_input_pass_warning_fail(out);
+    }
+  } else {
+    // No valid values yet → neutral state
+    out.value = '';
+    if (resultEl) {
+      resultEl.textContent = '';
+      resultEl.setAttribute('data-result', '');
+      resultEl.className = 'input-group-text fw-bold';
+    }
+    if (out) {
+      out.dataset.result = '';
+    }
+  }
+}
+
 function autofill_baseline(fieldName, targetInputId) {
   if (typeof baseline_values !== 'function') return;
 
@@ -557,6 +627,7 @@ if (typeof window !== 'undefined') {
   window.baseline_values = baseline_values;
   window.get_baseline_value = get_baseline_value;
   window.calc_percent_error = calc_percent_error;
+  window.calc_physical_error = calc_physical_error;
   window.autofill_baseline = autofill_baseline;
   window.eval_form = eval_form;
   window.run_control_script = run_control_script;
@@ -590,6 +661,7 @@ export {
   baseline_values,
   get_baseline_value,
   calc_percent_error,
+  calc_physical_error,
   autofill_baseline,
   eval_form,
   run_control_script,

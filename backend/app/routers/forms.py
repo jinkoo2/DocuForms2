@@ -31,16 +31,20 @@ async def upsert_form(form: FormTemplateIn):
     existing = await forms_collection.find_one({"_id": form.id})
     if not existing:
         doc["createdAt"] = datetime.utcnow()
+        # Set defaults for new documents
+        if "type" not in doc:
+            doc["type"] = "form"
+        if "parentId" not in doc:
+            doc["parentId"] = ""
     else:
         # Preserve existing createdAt
         doc["createdAt"] = existing.get("createdAt", datetime.utcnow())
+        # Preserve existing type and parentId if not provided in payload
+        if "type" not in doc:
+            doc["type"] = existing.get("type", "form")
+        if "parentId" not in doc:
+            doc["parentId"] = existing.get("parentId", "")
     
-    # Set defaults for backward compatibility
-    if "type" not in doc:
-        doc["type"] = "form"
-    if "parentId" not in doc:
-        doc["parentId"] = ""
-
     await forms_collection.replace_one({"_id": form.id}, doc, upsert=True)
     return {"status": "ok", "formId": form.id}
 

@@ -7,11 +7,14 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
   const [loading, setLoading] = useState(true);
   const [showNewFormModal, setShowNewFormModal] = useState(false);
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [newFormName, setNewFormName] = useState('');
   const [newFormId, setNewFormId] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderId, setNewFolderId] = useState('');
   const [parentId, setParentId] = useState(''); // For creating in a folder
+  const [editingItem, setEditingItem] = useState(null); // {id, name, type, parentId}
+  const [editName, setEditName] = useState('');
 
   const loadForms = async () => {
     try {
@@ -169,6 +172,69 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
     }
   };
 
+  const handleEdit = (item) => {
+    setEditingItem(item);
+    setEditName(item.name || item.id);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) {
+      alert('Please enter a name');
+      return;
+    }
+
+    if (!editingItem) {
+      return;
+    }
+
+    try {
+      // Fetch current form data to preserve all fields
+      const res = await fetch(`${BACKEND_URL}/api/forms/${editingItem.id}`);
+      if (!res.ok) {
+        throw new Error('Failed to fetch form data');
+      }
+      const currentData = await res.json();
+
+      // Update only the name, preserve all other fields
+      // Use fetched data for parentId and type to ensure we have the latest values
+      const payload = {
+        id: editingItem.id,
+        name: editName.trim(),
+        html: currentData.html || '',
+        fields: currentData.fields || [],
+        rules: currentData.rules || [],
+        version: currentData.version || 1,
+        type: currentData.type || editingItem.type || 'form',
+        parentId: currentData.parentId || editingItem.parentId || ''
+      };
+
+      const updateRes = await fetch(`${BACKEND_URL}/api/forms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!updateRes.ok) {
+        const errorText = await updateRes.text();
+        throw new Error(errorText || `Failed to update: ${updateRes.statusText}`);
+      }
+
+      // Close modal and refresh
+      setShowEditModal(false);
+      setEditingItem(null);
+      setEditName('');
+      
+      // Refresh the form list
+      setTimeout(() => {
+        loadForms();
+      }, 100);
+    } catch (err) {
+      alert(`Failed to update: ${err.message}`);
+      console.error('Error updating item:', err);
+    }
+  };
+
   return (
     <>
       <div className="col-md-3 col-lg-2 bg-light border-end d-flex flex-column p-0">
@@ -218,6 +284,7 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
               onNewFolder={handleNewFolderClick}
               onNewForm={handleNewFormInFolder}
               onMove={handleMove}
+              onEdit={handleEdit}
             />
           )}
         </div>
@@ -389,6 +456,82 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
           <div className="modal-backdrop fade show" style={{ zIndex: 1040 }} onClick={() => {
             setShowNewFolderModal(false);
             setParentId('');
+          }}></div>
+        </>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingItem && (
+        <>
+          <div className="modal fade show" style={{ display: 'block', zIndex: 1050 }} tabIndex="-1" role="dialog">
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Edit {editingItem.type === 'folder' ? 'Folder' : 'Form'}</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingItem(null);
+                      setEditName('');
+                    }}
+                  ></button>
+                </div>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label htmlFor="edit-item-id" className="form-label">{editingItem.type === 'folder' ? 'Folder' : 'Form'} ID</label>
+                    <input
+                      type="text"
+                      className="form-control font-monospace"
+                      id="edit-item-id"
+                      value={editingItem.id}
+                      disabled
+                      readOnly
+                    />
+                    <div className="form-text">ID cannot be changed.</div>
+                  </div>
+                  <div className="mb-3">
+                    <label htmlFor="edit-item-name" className="form-label">{editingItem.type === 'folder' ? 'Folder' : 'Form'} Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      id="edit-item-name"
+                      placeholder={`Enter ${editingItem.type === 'folder' ? 'folder' : 'form'} name`}
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingItem(null);
+                      setEditName('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleSaveEdit}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="modal-backdrop fade show" style={{ zIndex: 1040 }} onClick={() => {
+            setShowEditModal(false);
+            setEditingItem(null);
+            setEditName('');
           }}></div>
         </>
       )}

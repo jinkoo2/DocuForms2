@@ -1,5 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
+from datetime import datetime
 from app.config import settings
 
 client = AsyncIOMotorClient(settings.MONGO_URI)
@@ -10,7 +11,7 @@ submissions_collection = db.submissions
 
 
 def convert_objectid_to_str(doc: dict) -> dict:
-    """Convert MongoDB ObjectId fields to strings for JSON serialization."""
+    """Convert MongoDB ObjectId and datetime fields to strings for JSON serialization."""
     if doc is None:
         return doc
     
@@ -19,10 +20,12 @@ def convert_objectid_to_str(doc: dict) -> dict:
         for key, value in doc.items():
             if isinstance(value, ObjectId):
                 result[key] = str(value)
+            elif isinstance(value, datetime):
+                result[key] = value.isoformat()
             elif isinstance(value, dict):
                 result[key] = convert_objectid_to_str(value)
             elif isinstance(value, list):
-                result[key] = [convert_objectid_to_str(item) if isinstance(item, dict) else (str(item) if isinstance(item, ObjectId) else item) for item in value]
+                result[key] = [convert_objectid_to_str(item) if isinstance(item, dict) else (str(item) if isinstance(item, ObjectId) else (item.isoformat() if isinstance(item, datetime) else item)) for item in value]
             else:
                 result[key] = value
         return result

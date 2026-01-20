@@ -11,6 +11,8 @@ function FormBuilder() {
   const [formId, setFormId] = useState(searchParams.get('formId') || '');
   const [formName, setFormName] = useState('');
   const [html, setHtml] = useState('');
+  const [formType, setFormType] = useState('form');
+  const [parentId, setParentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
   const autoSaveTimeoutRef = useRef(null);
@@ -33,7 +35,9 @@ function FormBuilder() {
         html: htmlToSave,
         fields: fields,
         rules: rules,
-        version: 1
+        version: 1,
+        type: formType || 'form',
+        parentId: parentId || ''
       };
 
       await fetch(`${BACKEND_URL}/api/forms`, {
@@ -46,7 +50,7 @@ function FormBuilder() {
     } catch (err) {
       console.error('Auto-save error:', err);
     }
-  }, [formId, html, formName]);
+  }, [formId, html, formName, formType, parentId]);
 
   useEffect(() => {
     const urlFormId = searchParams.get('formId');
@@ -57,6 +61,8 @@ function FormBuilder() {
       setFormId('');
       setFormName('');
       setHtml('');
+      setFormType('form');
+      setParentId('');
     }
   }, [searchParams]);
 
@@ -66,6 +72,8 @@ function FormBuilder() {
       const formData = await fetchForm(id);
       setFormId(id);
       setFormName(formData.name || '');
+      setFormType(formData.type || 'form');
+      setParentId(formData.parentId || '');
       
       // Extract body content if HTML includes body tag
       let htmlContent = formData.html || '';
@@ -92,7 +100,7 @@ function FormBuilder() {
     }
   };
 
-  const handleNewForm = async (newFormId, newFormName, parentId = '') => {
+  const handleNewForm = async (newFormId, newFormName, newParentId = '') => {
     try {
       // Create the form in the database immediately with empty HTML
       const payload = {
@@ -103,7 +111,7 @@ function FormBuilder() {
         rules: [],
         version: 1,
         type: 'form',
-        parentId: parentId || ''
+        parentId: newParentId || ''
       };
 
       const res = await fetch(`${BACKEND_URL}/api/forms`, {
@@ -120,6 +128,8 @@ function FormBuilder() {
       // Set local state and update URL
       setFormId(newFormId);
       setFormName(newFormName);
+      setFormType('form');
+      setParentId(newParentId || '');
       setHtml('');
       const newUrl = new URL(window.location);
       newUrl.searchParams.set('formId', newFormId);
@@ -196,7 +206,9 @@ function FormBuilder() {
         html: htmlToSave,
         fields: fields,
         rules: rules,
-        version: 1
+        version: 1,
+        type: formType || 'form',
+        parentId: parentId || ''
       };
 
       const res = await fetch(`${BACKEND_URL}/api/forms`, {

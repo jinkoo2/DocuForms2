@@ -1,0 +1,520 @@
+<body>
+<div class="container-fluid">
+  <h2 class="mb-4">CT QA Case Review Form</h2>
+  
+  <!-- Case Information -->
+  <div class="card mb-3">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">Case Information</h5>
+    </div>
+    <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="performed_at" class="form-label">Performed At</label>
+          <input type="datetime-local" id="performed_at" name="performed_at" required>
+        </div>
+        <div class="col-md-6">
+          <label for="performed_by" class="form-label">Performed By</label>
+          <input type="text" id="performed_by" name="performed_by" placeholder="e.g., JA" required>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HU Consistency -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">HU Consistency</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Air</span>
+          <input id="hu_air" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_air_baseline" type="number" data-script="autofill_baseline('hu_air', 'hu_air_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_air_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_air', baselineField: 'hu_air', baselineInputId: 'hu_air_baseline', outputId: 'hu_air_error', resultId: 'hu_air_result'});">
+          <span id="hu_air_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">PMP</span>
+          <input id="hu_pmp" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_pmp_baseline" type="number" data-script="autofill_baseline('hu_pmp', 'hu_pmp_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_pmp_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_pmp', baselineField: 'hu_pmp', baselineInputId: 'hu_pmp_baseline', outputId: 'hu_pmp_error', resultId: 'hu_pmp_result'});">
+          <span id="hu_pmp_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Bone50</span>
+          <input id="hu_bone50" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_bone50_baseline" type="number" data-script="autofill_baseline('hu_bone50', 'hu_bone50_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_bone50_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_bone50', baselineField: 'hu_bone50', baselineInputId: 'hu_bone50_baseline', outputId: 'hu_bone50_error', resultId: 'hu_bone50_result'});">
+          <span id="hu_bone50_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LDPE</span>
+          <input id="hu_ldpe" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_ldpe_baseline" type="number" data-script="autofill_baseline('hu_ldpe', 'hu_ldpe_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_ldpe_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_ldpe', baselineField: 'hu_ldpe', baselineInputId: 'hu_ldpe_baseline', outputId: 'hu_ldpe_error', resultId: 'hu_ldpe_result'});">
+          <span id="hu_ldpe_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Polystyrene</span>
+          <input id="hu_polystyrene" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_polystyrene_baseline" type="number" data-script="autofill_baseline('hu_polystyrene', 'hu_polystyrene_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_polystyrene_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_polystyrene', baselineField: 'hu_polystyrene', baselineInputId: 'hu_polystyrene_baseline', outputId: 'hu_polystyrene_error', resultId: 'hu_polystyrene_result'});">
+          <span id="hu_polystyrene_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Acrylic</span>
+          <input id="hu_acrylic" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_acrylic_baseline" type="number" data-script="autofill_baseline('hu_acrylic', 'hu_acrylic_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_acrylic_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_acrylic', baselineField: 'hu_acrylic', baselineInputId: 'hu_acrylic_baseline', outputId: 'hu_acrylic_error', resultId: 'hu_acrylic_result'});">
+          <span id="hu_acrylic_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Bone20</span>
+          <input id="hu_bone20" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_bone20_baseline" type="number" data-script="autofill_baseline('hu_bone20', 'hu_bone20_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_bone20_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_bone20', baselineField: 'hu_bone20', baselineInputId: 'hu_bone20_baseline', outputId: 'hu_bone20_error', resultId: 'hu_bone20_result'});">
+          <span id="hu_bone20_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Delrin</span>
+          <input id="hu_delrin" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_delrin_baseline" type="number" data-script="autofill_baseline('hu_delrin', 'hu_delrin_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_delrin_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_delrin', baselineField: 'hu_delrin', baselineInputId: 'hu_delrin_baseline', outputId: 'hu_delrin_error', resultId: 'hu_delrin_result'});">
+          <span id="hu_delrin_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Teflon</span>
+          <input id="hu_teflon" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="hu_teflon_baseline" type="number" data-script="autofill_baseline('hu_teflon', 'hu_teflon_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="hu_teflon_error" type="number" readonly data-pass-range="-40:40" data-script="calc_physical_error({inputId: 'hu_teflon', baselineField: 'hu_teflon', baselineInputId: 'hu_teflon_baseline', outputId: 'hu_teflon_error', resultId: 'hu_teflon_result'});">
+          <span id="hu_teflon_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="form-text">Tolerance = 40.0 HU</div>
+    </div>
+  </div>
+
+  <!-- Geometric Accuracy (In-plane) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">Geometric Accuracy (In-plane)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">pt1→pt2</span>
+          <input id="geo_in_pt1_pt2" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="geo_in_pt1_pt2_baseline" type="number" data-script="autofill_baseline('geo_in_pt1_pt2', 'geo_in_pt1_pt2_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="geo_in_pt1_pt2_error" type="number" readonly data-pass-range="-1:1" data-script="calc_physical_error({inputId: 'geo_in_pt1_pt2', baselineField: 'geo_in_pt1_pt2', baselineInputId: 'geo_in_pt1_pt2_baseline', outputId: 'geo_in_pt1_pt2_error', resultId: 'geo_in_pt1_pt2_result'});">
+          <span id="geo_in_pt1_pt2_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">pt2→pt3</span>
+          <input id="geo_in_pt2_pt3" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="geo_in_pt2_pt3_baseline" type="number" data-script="autofill_baseline('geo_in_pt2_pt3', 'geo_in_pt2_pt3_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="geo_in_pt2_pt3_error" type="number" readonly data-pass-range="-1:1" data-script="calc_physical_error({inputId: 'geo_in_pt2_pt3', baselineField: 'geo_in_pt2_pt3', baselineInputId: 'geo_in_pt2_pt3_baseline', outputId: 'geo_in_pt2_pt3_error', resultId: 'geo_in_pt2_pt3_result'});">
+          <span id="geo_in_pt2_pt3_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">pt3→pt4</span>
+          <input id="geo_in_pt3_pt4" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="geo_in_pt3_pt4_baseline" type="number" data-script="autofill_baseline('geo_in_pt3_pt4', 'geo_in_pt3_pt4_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="geo_in_pt3_pt4_error" type="number" readonly data-pass-range="-1:1" data-script="calc_physical_error({inputId: 'geo_in_pt3_pt4', baselineField: 'geo_in_pt3_pt4', baselineInputId: 'geo_in_pt3_pt4_baseline', outputId: 'geo_in_pt3_pt4_error', resultId: 'geo_in_pt3_pt4_result'});">
+          <span id="geo_in_pt3_pt4_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">pt4→pt1</span>
+          <input id="geo_in_pt4_pt1" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="geo_in_pt4_pt1_baseline" type="number" data-script="autofill_baseline('geo_in_pt4_pt1', 'geo_in_pt4_pt1_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="geo_in_pt4_pt1_error" type="number" readonly data-pass-range="-1:1" data-script="calc_physical_error({inputId: 'geo_in_pt4_pt1', baselineField: 'geo_in_pt4_pt1', baselineInputId: 'geo_in_pt4_pt1_baseline', outputId: 'geo_in_pt4_pt1_error', resultId: 'geo_in_pt4_pt1_result'});">
+          <span id="geo_in_pt4_pt1_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="form-text">Tolerance = 1.0 mm</div>
+    </div>
+  </div>
+
+  <!-- Geometric Accuracy (Out-of-plane) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">Geometric Accuracy (Out-of-plane)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">pt5→pt6</span>
+          <input id="geo_out_pt5_pt6" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="geo_out_pt5_pt6_baseline" type="number" data-script="autofill_baseline('geo_out_pt5_pt6', 'geo_out_pt5_pt6_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="geo_out_pt5_pt6_error" type="number" readonly data-pass-range="-1.5:1.5" data-script="calc_physical_error({inputId: 'geo_out_pt5_pt6', baselineField: 'geo_out_pt5_pt6', baselineInputId: 'geo_out_pt5_pt6_baseline', outputId: 'geo_out_pt5_pt6_error', resultId: 'geo_out_pt5_pt6_result'});">
+          <span id="geo_out_pt5_pt6_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">pt6→pt5</span>
+          <input id="geo_out_pt6_pt5" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="geo_out_pt6_pt5_baseline" type="number" data-script="autofill_baseline('geo_out_pt6_pt5', 'geo_out_pt6_pt5_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="geo_out_pt6_pt5_error" type="number" readonly data-pass-range="-1.5:1.5" data-script="calc_physical_error({inputId: 'geo_out_pt6_pt5', baselineField: 'geo_out_pt6_pt5', baselineInputId: 'geo_out_pt6_pt5_baseline', outputId: 'geo_out_pt6_pt5_error', resultId: 'geo_out_pt6_pt5_result'});">
+          <span id="geo_out_pt6_pt5_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="form-text">Tolerance = 1.5 mm</div>
+    </div>
+  </div>
+
+  <!-- Uniformity (HU) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">Uniformity (HU)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">CTR</span>
+          <input id="uniformity_hu_ctr" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="uniformity_hu_ctr_baseline" type="number" data-script="autofill_baseline('uniformity_hu_ctr', 'uniformity_hu_ctr_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="uniformity_hu_ctr_error" type="number" readonly data-pass-range="-20:20" data-script="calc_physical_error({inputId: 'uniformity_hu_ctr', baselineField: 'uniformity_hu_ctr', baselineInputId: 'uniformity_hu_ctr_baseline', outputId: 'uniformity_hu_ctr_error', resultId: 'uniformity_hu_ctr_result'});">
+          <span id="uniformity_hu_ctr_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">ANT</span>
+          <input id="uniformity_hu_ant" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="uniformity_hu_ant_baseline" type="number" data-script="autofill_baseline('uniformity_hu_ant', 'uniformity_hu_ant_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="uniformity_hu_ant_error" type="number" readonly data-pass-range="-20:20" data-script="calc_physical_error({inputId: 'uniformity_hu_ant', baselineField: 'uniformity_hu_ant', baselineInputId: 'uniformity_hu_ant_baseline', outputId: 'uniformity_hu_ant_error', resultId: 'uniformity_hu_ant_result'});">
+          <span id="uniformity_hu_ant_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">RT</span>
+          <input id="uniformity_hu_rt" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="uniformity_hu_rt_baseline" type="number" data-script="autofill_baseline('uniformity_hu_rt', 'uniformity_hu_rt_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="uniformity_hu_rt_error" type="number" readonly data-pass-range="-20:20" data-script="calc_physical_error({inputId: 'uniformity_hu_rt', baselineField: 'uniformity_hu_rt', baselineInputId: 'uniformity_hu_rt_baseline', outputId: 'uniformity_hu_rt_error', resultId: 'uniformity_hu_rt_result'});">
+          <span id="uniformity_hu_rt_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">PST</span>
+          <input id="uniformity_hu_pst" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="uniformity_hu_pst_baseline" type="number" data-script="autofill_baseline('uniformity_hu_pst', 'uniformity_hu_pst_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="uniformity_hu_pst_error" type="number" readonly data-pass-range="-20:20" data-script="calc_physical_error({inputId: 'uniformity_hu_pst', baselineField: 'uniformity_hu_pst', baselineInputId: 'uniformity_hu_pst_baseline', outputId: 'uniformity_hu_pst_error', resultId: 'uniformity_hu_pst_result'});">
+          <span id="uniformity_hu_pst_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LT</span>
+          <input id="uniformity_hu_lt" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="uniformity_hu_lt_baseline" type="number" data-script="autofill_baseline('uniformity_hu_lt', 'uniformity_hu_lt_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="uniformity_hu_lt_error" type="number" readonly data-pass-range="-20:20" data-script="calc_physical_error({inputId: 'uniformity_hu_lt', baselineField: 'uniformity_hu_lt', baselineInputId: 'uniformity_hu_lt_baseline', outputId: 'uniformity_hu_lt_error', resultId: 'uniformity_hu_lt_result'});">
+          <span id="uniformity_hu_lt_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="form-text">Tolerance = 20</div>
+    </div>
+  </div>
+
+  <!-- Uniformity (Integral) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">Uniformity (Integral)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">Integral Uniformity</span>
+          <input id="uniformity_integral" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="uniformity_integral_baseline" type="number" data-script="autofill_baseline('uniformity_integral', 'uniformity_integral_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="uniformity_integral_error" type="number" readonly data-pass-range="-0.2:0.2" data-script="calc_physical_error({inputId: 'uniformity_integral', baselineField: 'uniformity_integral', baselineInputId: 'uniformity_integral_baseline', outputId: 'uniformity_integral_error', resultId: 'uniformity_integral_result'});">
+          <span id="uniformity_integral_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="form-text">Tolerance = 0.05</div>
+    </div>
+  </div>
+
+  <!-- Low Contrast (STD) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">Low Contrast (STD)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">STD Value</span>
+          <input id="low_contrast_std" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="low_contrast_std_baseline" type="number" data-script="autofill_baseline('low_contrast_std', 'low_contrast_std_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="low_contrast_std_error" type="number" readonly data-pass-range="-10:10" data-script="calc_physical_error({inputId: 'low_contrast_std', baselineField: 'low_contrast_std', baselineInputId: 'low_contrast_std_baseline', outputId: 'low_contrast_std_error', resultId: 'low_contrast_std_result'});">
+          <span id="low_contrast_std_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- High Contrast (RMTF) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">High Contrast (RMTF)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 1</span>
+          <input id="high_contrast_rmtf_1" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_1_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_1', 'high_contrast_rmtf_1_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_1_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_1', baselineField: 'high_contrast_rmtf_1', baselineInputId: 'high_contrast_rmtf_1_baseline', outputId: 'high_contrast_rmtf_1_error', resultId: 'high_contrast_rmtf_1_result'});">
+          <span id="high_contrast_rmtf_1_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 2</span>
+          <input id="high_contrast_rmtf_2" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_2_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_2', 'high_contrast_rmtf_2_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_2_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_2', baselineField: 'high_contrast_rmtf_2', baselineInputId: 'high_contrast_rmtf_2_baseline', outputId: 'high_contrast_rmtf_2_error', resultId: 'high_contrast_rmtf_2_result'});">
+          <span id="high_contrast_rmtf_2_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 3</span>
+          <input id="high_contrast_rmtf_3" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_3_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_3', 'high_contrast_rmtf_3_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_3_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_3', baselineField: 'high_contrast_rmtf_3', baselineInputId: 'high_contrast_rmtf_3_baseline', outputId: 'high_contrast_rmtf_3_error', resultId: 'high_contrast_rmtf_3_result'});">
+          <span id="high_contrast_rmtf_3_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 4</span>
+          <input id="high_contrast_rmtf_4" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_4_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_4', 'high_contrast_rmtf_4_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_4_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_4', baselineField: 'high_contrast_rmtf_4', baselineInputId: 'high_contrast_rmtf_4_baseline', outputId: 'high_contrast_rmtf_4_error', resultId: 'high_contrast_rmtf_4_result'});">
+          <span id="high_contrast_rmtf_4_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 5</span>
+          <input id="high_contrast_rmtf_5" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_5_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_5', 'high_contrast_rmtf_5_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_5_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_5', baselineField: 'high_contrast_rmtf_5', baselineInputId: 'high_contrast_rmtf_5_baseline', outputId: 'high_contrast_rmtf_5_error', resultId: 'high_contrast_rmtf_5_result'});">
+          <span id="high_contrast_rmtf_5_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 6</span>
+          <input id="high_contrast_rmtf_6" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_6_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_6', 'high_contrast_rmtf_6_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_6_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_6', baselineField: 'high_contrast_rmtf_6', baselineInputId: 'high_contrast_rmtf_6_baseline', outputId: 'high_contrast_rmtf_6_error', resultId: 'high_contrast_rmtf_6_result'});">
+          <span id="high_contrast_rmtf_6_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 7</span>
+          <input id="high_contrast_rmtf_7" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_7_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_7', 'high_contrast_rmtf_7_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_7_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_7', baselineField: 'high_contrast_rmtf_7', baselineInputId: 'high_contrast_rmtf_7_baseline', outputId: 'high_contrast_rmtf_7_error', resultId: 'high_contrast_rmtf_7_result'});">
+          <span id="high_contrast_rmtf_7_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 8</span>
+          <input id="high_contrast_rmtf_8" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_8_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_8', 'high_contrast_rmtf_8_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_8_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_8', baselineField: 'high_contrast_rmtf_8', baselineInputId: 'high_contrast_rmtf_8_baseline', outputId: 'high_contrast_rmtf_8_error', resultId: 'high_contrast_rmtf_8_result'});">
+          <span id="high_contrast_rmtf_8_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 9</span>
+          <input id="high_contrast_rmtf_9" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_9_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_9', 'high_contrast_rmtf_9_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_9_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_9', baselineField: 'high_contrast_rmtf_9', baselineInputId: 'high_contrast_rmtf_9_baseline', outputId: 'high_contrast_rmtf_9_error', resultId: 'high_contrast_rmtf_9_result'});">
+          <span id="high_contrast_rmtf_9_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 10</span>
+          <input id="high_contrast_rmtf_10" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_10_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_10', 'high_contrast_rmtf_10_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_10_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_10', baselineField: 'high_contrast_rmtf_10', baselineInputId: 'high_contrast_rmtf_10_baseline', outputId: 'high_contrast_rmtf_10_error', resultId: 'high_contrast_rmtf_10_result'});">
+          <span id="high_contrast_rmtf_10_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 11</span>
+          <input id="high_contrast_rmtf_11" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_11_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_11', 'high_contrast_rmtf_11_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_11_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_11', baselineField: 'high_contrast_rmtf_11', baselineInputId: 'high_contrast_rmtf_11_baseline', outputId: 'high_contrast_rmtf_11_error', resultId: 'high_contrast_rmtf_11_result'});">
+          <span id="high_contrast_rmtf_11_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 12</span>
+          <input id="high_contrast_rmtf_12" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_12_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_12', 'high_contrast_rmtf_12_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_12_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_12', baselineField: 'high_contrast_rmtf_12', baselineInputId: 'high_contrast_rmtf_12_baseline', outputId: 'high_contrast_rmtf_12_error', resultId: 'high_contrast_rmtf_12_result'});">
+          <span id="high_contrast_rmtf_12_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 13</span>
+          <input id="high_contrast_rmtf_13" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_13_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_13', 'high_contrast_rmtf_13_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_13_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_13', baselineField: 'high_contrast_rmtf_13', baselineInputId: 'high_contrast_rmtf_13_baseline', outputId: 'high_contrast_rmtf_13_error', resultId: 'high_contrast_rmtf_13_result'});">
+          <span id="high_contrast_rmtf_13_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 14</span>
+          <input id="high_contrast_rmtf_14" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_14_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_14', 'high_contrast_rmtf_14_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_14_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_14', baselineField: 'high_contrast_rmtf_14', baselineInputId: 'high_contrast_rmtf_14_baseline', outputId: 'high_contrast_rmtf_14_error', resultId: 'high_contrast_rmtf_14_result'});">
+          <span id="high_contrast_rmtf_14_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">LP/CM 15</span>
+          <input id="high_contrast_rmtf_15" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf_15_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf_15', 'high_contrast_rmtf_15_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf_15_error" type="number" readonly data-pass-range="-0.5:0.5" data-script="calc_physical_error({inputId: 'high_contrast_rmtf_15', baselineField: 'high_contrast_rmtf_15', baselineInputId: 'high_contrast_rmtf_15_baseline', outputId: 'high_contrast_rmtf_15_error', resultId: 'high_contrast_rmtf_15_result'});">
+          <span id="high_contrast_rmtf_15_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+      <div class="form-text">Tolerance = 0.5</div>
+    </div>
+  </div>
+
+  <!-- High Contrast (RMTF=50%) -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">High Contrast (RMTF=50%)</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">RMTF=50% Value</span>
+          <input id="high_contrast_rmtf50" type="number">
+          <span class="input-group-text">Baseline</span>
+          <input id="high_contrast_rmtf50_baseline" type="number" data-script="autofill_baseline('high_contrast_rmtf50', 'high_contrast_rmtf50_baseline')">
+          <span class="input-group-text">Error</span>
+          <input id="high_contrast_rmtf50_error" type="number" readonly data-pass-range="-2.0:2.0" data-script="calc_physical_error({inputId: 'high_contrast_rmtf50', baselineField: 'high_contrast_rmtf50', baselineInputId: 'high_contrast_rmtf50_baseline', outputId: 'high_contrast_rmtf50_error', resultId: 'high_contrast_rmtf50_result'});">
+          <span id="high_contrast_rmtf50_result" class="input-group-text fw-bold" data-result=""></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>

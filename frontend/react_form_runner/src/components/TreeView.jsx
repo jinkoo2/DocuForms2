@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-function TreeNode({ node, level, selectedId, onSelect, onDelete, onNewFolder, onNewForm, onMove, readOnly = false }) {
+function TreeNode({ node, level, selectedId, onSelect, onDelete, onNewFolder, onNewForm, onMove, onEdit, readOnly = false }) {
   const [expanded, setExpanded] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const isSelected = selectedId === node.id;
@@ -26,6 +26,13 @@ function TreeNode({ node, level, selectedId, onSelect, onDelete, onNewFolder, on
   const handleDelete = (e) => {
     e.stopPropagation();
     onDelete(node.id, node.name || node.id);
+  };
+
+  const handleEdit = (e) => {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit(node);
+    }
   };
 
   const handleNewFolder = (e) => {
@@ -143,14 +150,24 @@ function TreeNode({ node, level, selectedId, onSelect, onDelete, onNewFolder, on
           </div>
         )}
         {!readOnly && (
-          <button
-            className="btn btn-sm btn-danger"
-            style={{ padding: '2px 4px', fontSize: '10px' }}
-            onClick={handleDelete}
-            title={`Delete ${isFolder ? 'folder' : 'form'}`}
-          >
-            🗑️
-          </button>
+          <>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              style={{ padding: '2px 4px', fontSize: '10px' }}
+              onClick={handleEdit}
+              title={`Edit ${isFolder ? 'folder' : 'form'}`}
+            >
+              ✏️
+            </button>
+            <button
+              className="btn btn-sm btn-danger"
+              style={{ padding: '2px 4px', fontSize: '10px' }}
+              onClick={handleDelete}
+              title={`Delete ${isFolder ? 'folder' : 'form'}`}
+            >
+              🗑️
+            </button>
+          </>
         )}
       </div>
       {isFolder && expanded && node.children && node.children.length > 0 && (
@@ -166,6 +183,7 @@ function TreeNode({ node, level, selectedId, onSelect, onDelete, onNewFolder, on
               onNewFolder={onNewFolder}
               onNewForm={onNewForm}
               onMove={onMove}
+              onEdit={onEdit}
               readOnly={readOnly}
             />
           ))}
@@ -175,7 +193,7 @@ function TreeNode({ node, level, selectedId, onSelect, onDelete, onNewFolder, on
   );
 }
 
-function TreeView({ items, selectedId, onSelect, onDelete, onNewFolder, onNewForm, onMove, readOnly = false }) {
+function TreeView({ items, selectedId, onSelect, onDelete, onNewFolder, onNewForm, onMove, onEdit, readOnly = false }) {
   const [isDraggingOverRoot, setIsDraggingOverRoot] = useState(false);
 
   // Build tree structure from flat list
@@ -280,6 +298,7 @@ function TreeView({ items, selectedId, onSelect, onDelete, onNewFolder, onNewFor
             onNewFolder={onNewFolder}
             onNewForm={onNewForm}
             onMove={onMove}
+            onEdit={onEdit}
             readOnly={readOnly}
           />
         ))

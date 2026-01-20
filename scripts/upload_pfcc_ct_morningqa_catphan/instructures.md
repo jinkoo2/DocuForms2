@@ -1,0 +1,1 @@
+./scripts/GECTSH is a data folder created by CTQA app. the cases folder has some sample cases. each case folder (date_time) has a folder 3.analysis which is report.html. the html file is the final report for the case. Given the several cases, please create a form that I can copy and paste in the Form Builder. allow users to type in the reference (baseline) values.

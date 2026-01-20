@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ctqa_cmd", "ctqa\ctqa_cmd.csproj", "{AB18A778-52E6-4B15-BAE2-BC3CBC956987}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ctqa_lib", "ctqa_lib\ctqa_lib.csproj", "{07D2FE8F-3749-44F0-BE1C-8131B797CF20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Crypt", "Crypt\Crypt.csproj", "{413BBCEB-C59B-4742-8359-F369CAE17AA4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ctqa_service", "ctqa_service\ctqa_service.csproj", "{184A927D-4C68-4D88-AE07-4ABE77D33D86}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "analysis", "analysis\analysis.csproj", "{FA9A6411-1CE7-472C-97B8-169441C2D6F4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ctqa_service2", "ctqa_service2\ctqa_service2.csproj", "{5D2CD246-7311-49DA-B3F1-0DE046CE0660}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AB18A778-52E6-4B15-BAE2-BC3CBC956987}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB18A778-52E6-4B15-BAE2-BC3CBC956987}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB18A778-52E6-4B15-BAE2-BC3CBC956987}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB18A778-52E6-4B15-BAE2-BC3CBC956987}.Release|Any CPU.Build.0 = Release|Any CPU
+		{07D2FE8F-3749-44F0-BE1C-8131B797CF20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{07D2FE8F-3749-44F0-BE1C-8131B797CF20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{07D2FE8F-3749-44F0-BE1C-8131B797CF20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{07D2FE8F-3749-44F0-BE1C-8131B797CF20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{413BBCEB-C59B-4742-8359-F369CAE17AA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{413BBCEB-C59B-4742-8359-F369CAE17AA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{413BBCEB-C59B-4742-8359-F369CAE17AA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{413BBCEB-C59B-4742-8359-F369CAE17AA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{184A927D-4C68-4D88-AE07-4ABE77D33D86}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{184A927D-4C68-4D88-AE07-4ABE77D33D86}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{184A927D-4C68-4D88-AE07-4ABE77D33D86}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{184A927D-4C68-4D88-AE07-4ABE77D33D86}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FA9A6411-1CE7-472C-97B8-169441C2D6F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FA9A6411-1CE7-472C-97B8-169441C2D6F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FA9A6411-1CE7-472C-97B8-169441C2D6F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FA9A6411-1CE7-472C-97B8-169441C2D6F4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5D2CD246-7311-49DA-B3F1-0DE046CE0660}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D2CD246-7311-49DA-B3F1-0DE046CE0660}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D2CD246-7311-49DA-B3F1-0DE046CE0660}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D2CD246-7311-49DA-B3F1-0DE046CE0660}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

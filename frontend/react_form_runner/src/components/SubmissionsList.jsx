@@ -137,7 +137,9 @@ function SubmissionsList({ formId }) {
             </thead>
             <tbody>
               {submissions.map((s) => {
-                const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '';
+                // Use performedAt if present, otherwise fall back to submittedAt
+                const dateValue = s.performedAt || s.submittedAt;
+                const date = dateValue ? new Date(dateValue).toLocaleString() : '';
                 const result = (s.result || '').toUpperCase();
                 const resultBadge =
                   result === 'PASS' ? 'bg-success' :
@@ -249,7 +251,9 @@ function SubmissionsList({ formId }) {
         </select>
       </div>
       {submissions.map((s) => {
-        const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '';
+        // Use performedAt if present, otherwise fall back to submittedAt
+        const dateValue = s.performedAt || s.submittedAt;
+        const date = dateValue ? new Date(dateValue).toLocaleString() : '';
         const result = (s.result || '').toUpperCase();
         const resultBadge =
           result === 'PASS' ? 'bg-success' :
