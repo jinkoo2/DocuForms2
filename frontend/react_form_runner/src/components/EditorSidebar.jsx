@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { fetchForms, BACKEND_URL } from '../utils/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { fetchForms, fetchForm, BACKEND_URL } from '../utils/api';
 import TreeView from './TreeView';
 
 function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElement }) {
@@ -15,6 +15,7 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
   const [parentId, setParentId] = useState(''); // For creating in a folder
   const [editingItem, setEditingItem] = useState(null); // {id, name, type, parentId}
   const [editName, setEditName] = useState('');
+  const fileInputRef = useRef(null);
 
   const loadForms = async () => {
     try {
@@ -235,6 +236,219 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
     }
   };
 
+  const handleExportForms = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch list of all forms and folders
+      const itemsList = await fetchForms();
+      
+      // Fetch full details for each item
+      const formsData = [];
+      for (const item of itemsList) {
+        try {
+          const fullData = await fetchForm(item.id);
+          // Remove MongoDB-specific fields and ensure we have all needed fields
+          const exportData = {
+            id: fullData.id,
+            name: fullData.name || '',
+            html: fullData.html || '',
+            fields: fullData.fields || [],
+            rules: fullData.rules || [],
+            version: fullData.version || 1,
+            type: fullData.type || 'form',
+            parentId: fullData.parentId || ''
+          };
+          formsData.push(exportData);
+        } catch (err) {
+          console.error(`Error fetching form ${item.id}:`, err);
+          // Continue with other forms even if one fails
+        }
+      }
+      
+      // Create JSON structure
+      const exportJson = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        forms: formsData
+      };
+      
+      // Download as JSON file
+      const jsonStr = JSON.stringify(exportJson, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'forms.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert(`Exported ${formsData.length} forms and folders successfully!`);
+    } catch (err) {
+      alert(`Failed to export forms: ${err.message}`);
+      console.error('Error exporting forms:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImportForms = () => {
+    // Trigger file input click
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    try {
+      setLoading(true);
+      
+      // Read file content
+      const text = await file.text();
+      const importData = JSON.parse(text);
+      
+      // Validate structure
+      if (!importData.forms || !Array.isArray(importData.forms)) {
+        throw new Error('Invalid file format: missing "forms" array');
+      }
+      
+      const formsToImport = importData.forms;
+      if (formsToImport.length === 0) {
+        alert('No forms found in the file.');
+        setLoading(false);
+        return;
+      }
+      
+      // Sort: folders first, then forms, ensuring parents are created before children
+      // Use topological sort: create root items first, then items whose parents exist
+      const sortedForms = [];
+      const remaining = [...formsToImport];
+      const created = new Set();
+      
+      // Helper to check if parent exists (for root items, parentId is empty)
+      const canCreate = (item) => {
+        if (!item.parentId || item.parentId === '') {
+          return true; // Root level items can always be created
+        }
+        return created.has(item.parentId);
+      };
+      
+      // First pass: sort by type (folders before forms)
+      const folders = remaining.filter(f => f.type === 'folder');
+      const forms = remaining.filter(f => f.type !== 'folder');
+      
+      // Create folders in topological order
+      let changed = true;
+      while (folders.length > 0 && changed) {
+        changed = false;
+        for (let i = folders.length - 1; i >= 0; i--) {
+          if (canCreate(folders[i])) {
+            sortedForms.push(folders[i]);
+            created.add(folders[i].id);
+            folders.splice(i, 1);
+            changed = true;
+          }
+        }
+      }
+      
+      // Add any remaining folders (orphaned) at the end
+      sortedForms.push(...folders);
+      
+      // Create forms in topological order
+      changed = true;
+      while (forms.length > 0 && changed) {
+        changed = false;
+        for (let i = forms.length - 1; i >= 0; i--) {
+          if (canCreate(forms[i])) {
+            sortedForms.push(forms[i]);
+            created.add(forms[i].id);
+            forms.splice(i, 1);
+            changed = true;
+          }
+        }
+      }
+      
+      // Add any remaining forms (orphaned) at the end
+      sortedForms.push(...forms);
+      
+      // Import each form/folder
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+      
+      for (const formData of sortedForms) {
+        try {
+          // Validate required fields
+          if (!formData.id || !formData.name) {
+            throw new Error(`Missing required fields: id or name`);
+          }
+          
+          // Prepare payload
+          const payload = {
+            id: formData.id.trim(),
+            name: formData.name.trim(),
+            html: formData.html || '',
+            fields: formData.fields || [],
+            rules: formData.rules || [],
+            version: formData.version || 1,
+            type: formData.type || 'form',
+            parentId: formData.parentId || ''
+          };
+          
+          // Create/update form
+          const res = await fetch(`${BACKEND_URL}/api/forms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          
+          if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(errorText || `Failed to import ${formData.id}`);
+          }
+          
+          successCount++;
+        } catch (err) {
+          errorCount++;
+          errors.push(`${formData.id}: ${err.message}`);
+          console.error(`Error importing ${formData.id}:`, err);
+        }
+      }
+      
+      // Refresh form list
+      await loadForms();
+      
+      // Show results
+      if (errorCount === 0) {
+        alert(`Successfully imported ${successCount} forms and folders!`);
+      } else {
+        alert(
+          `Import completed with errors:\n` +
+          `✓ Successfully imported: ${successCount}\n` +
+          `✗ Failed: ${errorCount}\n\n` +
+          `Errors:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? '\n...' : ''}`
+        );
+      }
+    } catch (err) {
+      alert(`Failed to import forms: ${err.message}`);
+      console.error('Error importing forms:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="col-md-3 col-lg-2 bg-light border-end d-flex flex-column p-0">
@@ -261,6 +475,22 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
                 title="New Folder"
               >
                 📁
+              </button>
+              <button
+                className="btn btn-sm btn-success"
+                onClick={handleExportForms}
+                title="Export Forms"
+                disabled={loading}
+              >
+                ⬇️
+              </button>
+              <button
+                className="btn btn-sm btn-info"
+                onClick={handleImportForms}
+                title="Import Forms"
+                disabled={loading}
+              >
+                ⬆️
               </button>
               <button
                 className="btn btn-sm btn-outline-secondary"
@@ -535,6 +765,15 @@ function EditorSidebar({ selectedFormId, onFormSelect, onNewForm, onInsertElemen
           }}></div>
         </>
       )}
+
+      {/* Hidden file input for import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        accept=".json,application/json"
+        onChange={handleFileChange}
+      />
     </>
   );
 }
