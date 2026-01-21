@@ -43,7 +43,6 @@ python run_worker.py
 Set environment variables in `.env`:
 - `MONGODB_URL` - MongoDB connection string
 - `REDIS_URL` - Redis connection string
-- `UPLOAD_DIR` - Directory for uploaded files
-- `RESULTS_DIR` - Directory for analysis results
+- `UPLOAD_DIR` - Directory for uploaded files (results are saved here too)
 - `MACHINE_PARAM_FILE` - Path to machine parameter file
 - `SERVICE_PARAM_FILE` - Path to service parameter file

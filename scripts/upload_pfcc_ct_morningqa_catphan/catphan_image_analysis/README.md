@@ -9,31 +9,61 @@ Complete system for CTQA (CT Quality Assurance) analysis with FastAPI server, Re
 - **MongoDB**: Database for storing job metadata and results
 - **Redis**: Job queue for asynchronous processing
 - **RQ Workers**: Background workers for processing CTQA analysis
+- **RQ Dashboard**: Web-based dashboard for monitoring RQ jobs and queues
 
 ## Quick Start with Docker
 
-### 1. Start All Services
+### 1. Configure Environment Variables
+
+**IMPORTANT**: Before starting services, create a `.env` file with secure random passwords.
+
+**Option 1: Use the setup script (recommended)**
+```bash
+./setup_env.sh
+```
+
+**Option 2: Manual setup**
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Generate a secure random password
+python3 -c "import secrets; pwd = secrets.token_urlsafe(24); print(f'MONGO_INITDB_ROOT_PASSWORD={pwd}'); print(f'MONGO_EXPRESS_ADMIN_PASSWORD={pwd}')"
+
+# Edit .env and replace CHANGE_ME_GENERATE_RANDOM_PASSWORD with the generated password
+```
+
+**Option 3: One-liner**
+```bash
+python3 -c "import secrets; pwd = secrets.token_urlsafe(24); print(f'MONGO_INITDB_ROOT_USERNAME=root'); print(f'MONGO_INITDB_ROOT_PASSWORD={pwd}'); print(f'MONGO_EXPRESS_ADMIN_PASSWORD={pwd}')" > .env
+```
+
+⚠️ **Security Note**: The `.env` file contains sensitive passwords and is automatically excluded from git (see `.gitignore`). Never commit this file to version control.
+
+### 2. Start All Services
 
 ```bash
 docker-compose up -d
 ```
 
 This starts:
-- MongoDB on port 27018
-- Redis on port 6380
+- MongoDB on port 27019
+- Redis on port 6381
 - Mongo Express on port 8083
 - FastAPI Server on port 8000
 - RQ Worker (background job processor)
+- RQ Dashboard on port 9181
 - React Client on port 3000
 
-### 2. Access Services
+### 3. Access Services
 
 - **React Client**: http://localhost:3000
 - **FastAPI API**: http://localhost:8000
 - **API Documentation**: http://localhost:8000/docs
 - **Mongo Express**: http://localhost:8083
+- **RQ Dashboard**: http://localhost:9181
 
-### 3. Stop Services
+### 4. Stop Services
 
 ```bash
 docker-compose down
@@ -53,8 +83,8 @@ docker-compose up -d mongodb redis mongo-express
 ```
 
 This starts:
-- MongoDB on port 27018
-- Redis on port 6380
+- MongoDB on port 27019
+- Redis on port 6381
 - Mongo Express on port 8083
 
 ### 2. Setup FastAPI Server
@@ -73,7 +103,7 @@ Ensure you have:
 
 Start the server:
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 0.0.0.0 --port 8003 --reload
 ```
 
 Start the worker (in a separate terminal):
@@ -96,8 +126,8 @@ The client will be available at http://localhost:3000
 ### FastAPI Server (.env)
 
 ```
-MONGODB_URL=mongodb://root:catphan123@localhost:27018/
-REDIS_URL=redis://localhost:6380/0
+MONGODB_URL=mongodb://root:YOUR_PASSWORD_FROM_ENV@localhost:27019/
+REDIS_URL=redis://localhost:6381/0
 UPLOAD_DIR=./uploads
 RESULTS_DIR=./results
 MACHINE_PARAM_FILE=./config/machine_param.txt
@@ -176,6 +206,8 @@ docker-compose logs -f
 docker-compose logs -f fastapi-server
 docker-compose logs -f rq-worker
 docker-compose logs -f react-client
+docker-compose logs -f rq-dashboard
+docker-compose logs -f rq-dashboard
 ```
 
 ### Running Tests
@@ -214,3 +246,9 @@ npm test
 - Check worker logs: `docker-compose logs rq-worker`
 - Verify Redis connection
 - Ensure worker container is running: `docker-compose ps rq-worker`
+- Monitor jobs in RQ Dashboard: http://localhost:9181
+
+### RQ Dashboard Not Accessible
+- Check dashboard logs: `docker-compose logs rq-dashboard`
+- Verify Redis connection: `docker-compose exec rq-dashboard ping redis`
+- Ensure dashboard container is running: `docker-compose ps rq-dashboard`

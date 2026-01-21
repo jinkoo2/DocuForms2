@@ -1,0 +1,59 @@
+#======================================================================
+# machine id
+#======================================================================
+machine=GECTSH
+
+baseline_dir=./baseline
+cases_dir=./_uploads
+
+num_of_HU_masks=9
+num_of_UF_masks=5
+num_of_HC_masks=15
+num_of_LC_masks=1
+num_of_geo_masks=4
+num_of_DT_masks=2
+
+HU_tol=40.0
+geo_tol=1.0
+DT_tol=1.5
+UF_tol=20
+LC_tol=10.0
+UF.uniformity_tol=0.2
+HC_RMTF_tol=0.5
+HC_RMTF50_tol=2.0
+
+
+
+
+html_report_template=./config/report_templates/full/report.html
+
+#replace words 
+replace_words_for_report=geo1->geo2,geo2->geo3,geo3->geo4,geo4->geo1,DT1->DT2,DT2->DT1
+geo1->geo2=pt1->pt2
+geo2->geo3=pt2->pt3
+geo3->geo4=pt3->pt4
+geo4->geo1=pt4->pt1
+DT1->DT2=pt5->pt6
+DT2->DT1=pt6->pt5
+
+
+#=======================================
+# email receivers, comma seperated list
+#email_to=RadOnc_Physicists,Ronald.Pelletier,Charles.Szarka,marlene.asencio
+#email_to=jinkoo.kim,James.Han
+#email_to=jinkoo.kim
+email_to=RadOnc_Physicists,SBSH_RadOnc_Radiation_Therapists
+email_log_to=jinkoo.kim
+
+#=======================================
+# sender
+email_from=radonc.physics
+# encrypted email pw. 
+email_from_enc_pw=
+
+#=======================================
+#email domain/host
+email_domain=stonybrookmedicine.edu
+email_host_address=uhmc-imail.uhmc.sunysb.edu
+email_host_port=25
+enable_ssl=false

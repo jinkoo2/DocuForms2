@@ -436,10 +436,7 @@ def main():
         sys.stdout.flush()
         
         # Check if report was created
-        new_report = case_dir / "3.analysis" / "report.test.html"
-        if not new_report.exists():
-            # Fallback to report.html
-            new_report = case_dir / "3.analysis" / "report.html"
+        new_report = case_dir / "3.analysis" / "report.html"
         
         if new_report.exists():
             print(f"✓ Report created: {new_report}")

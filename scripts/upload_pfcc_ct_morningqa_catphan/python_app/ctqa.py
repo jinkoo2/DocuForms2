@@ -32,26 +32,17 @@ class CTQA:
         
         Args:
             machine_param_file: Path to machine parameter file
-            service_param_file: Path to service parameter file (optional, kept for compatibility)
+            service_param_file: Deprecated, kept for backwards compatibility (ignored)
         """
         self.machine_param = Param(machine_param_file) if machine_param_file else None
-        self.service_param = Param(service_param_file) if service_param_file else None
         
         # Setup logging
         self.log_file = self._setup_logging()
         
     def _setup_logging(self):
         """Setup logging to file and console"""
-        # Try to get log path from service_param, otherwise use current directory
-        log_dir = "."
-        if self.service_param:
-            log_path = self.service_param.get_value("log_path")
-            if log_path:
-                log_dir = log_path
-        elif self.machine_param:
-            log_path = self.machine_param.get_value("log_path")
-            if log_path:
-                log_dir = log_path
+        # Hardcoded log directory
+        log_dir = "./_logs"
         
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
@@ -709,6 +700,152 @@ class CTQA:
         tol = float(self.machine_param.get_value(f"{key}_tol"))
         return self.gen_html_table_rows_from_csv(case_result_dir, baseline_dir, num_of_masks, tol, filename, num_format)
     
+    def collect_csv_results(self, case_result_dir, baseline_dir, num_of_masks, tol, filename):
+        """Collect analysis results from CSV for JSON output"""
+        id2label_file = self.combine(baseline_dir, "id2label.txt")
+        id2label = Param(id2label_file)
+        
+        results = []
+        
+        # Read baseline values
+        file0 = self.combine(baseline_dir, filename)
+        if not os.path.exists(file0):
+            return results
+        with open(file0, 'r') as f:
+            lines0 = f.readlines()
+            labels0 = lines0[0].strip().split(',')
+            values0 = lines0[1].strip().split(',')
+        
+        # Read case values
+        file1 = self.combine(case_result_dir, filename)
+        if not os.path.exists(file1):
+            return results
+        with open(file1, 'r') as f:
+            lines1 = f.readlines()
+            labels1 = lines1[0].strip().split(',')
+            values1 = lines1[1].strip().split(',')
+        
+        for i in range(min(num_of_masks, len(values0), len(values1))):
+            mask_id = labels0[i].strip()
+            label = id2label.get_value(mask_id).strip()
+            if label == "":
+                label = mask_id
+            value = float(values1[i])
+            reference = float(values0[i])
+            diff = value - reference
+            passed = abs(diff) < tol
+            
+            results.append({
+                "id": mask_id,
+                "label": label,
+                "value": round(value, 4),
+                "reference": round(reference, 4),
+                "difference": round(diff, 4),
+                "tolerance": tol,
+                "passed": passed
+            })
+        
+        return results
+    
+    def collect_analysis_results(self, case_result_dir, baseline_dir, study_date, study_time, operator):
+        """Collect all analysis results into a JSON-serializable dictionary"""
+        results = {
+            "metadata": {
+                "study_date": study_date,
+                "study_time": study_time,
+                "operator": operator,
+                "machine": self.machine_param.get_value("machine_name") or "Unknown"
+            },
+            "hu_consistency": {
+                "tolerance": float(self.machine_param.get_value("HU_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    int(self.machine_param.get_value("num_of_HU_masks")),
+                    float(self.machine_param.get_value("HU_tol")),
+                    "HU.csv"
+                )
+            },
+            "geometric_accuracy_inplane": {
+                "tolerance": float(self.machine_param.get_value("geo_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    int(self.machine_param.get_value("num_of_geo_masks")),
+                    float(self.machine_param.get_value("geo_tol")),
+                    "geo.dist.csv"
+                )
+            },
+            "geometric_accuracy_outofplane": {
+                "tolerance": float(self.machine_param.get_value("DT_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    int(self.machine_param.get_value("num_of_DT_masks")),
+                    float(self.machine_param.get_value("DT_tol")),
+                    "DT.dist.csv"
+                )
+            },
+            "uniformity_hu": {
+                "tolerance": float(self.machine_param.get_value("UF_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    int(self.machine_param.get_value("num_of_UF_masks")),
+                    float(self.machine_param.get_value("UF_tol")),
+                    "UF.csv"
+                )
+            },
+            "uniformity_integral": {
+                "tolerance": float(self.machine_param.get_value("UF.uniformity_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    1,
+                    float(self.machine_param.get_value("UF.uniformity_tol")),
+                    "UF.uniformity.csv"
+                )
+            },
+            "low_contrast": {
+                "tolerance": float(self.machine_param.get_value("LC_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    int(self.machine_param.get_value("num_of_LC_masks")),
+                    float(self.machine_param.get_value("LC_tol")),
+                    "LC.csv"
+                )
+            },
+            "high_contrast_rmtf": {
+                "tolerance": float(self.machine_param.get_value("HC_RMTF_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    int(self.machine_param.get_value("num_of_HC_masks")),
+                    float(self.machine_param.get_value("HC_RMTF_tol")),
+                    "HC.RMTF.csv"
+                )
+            },
+            "high_contrast_rmtf50": {
+                "tolerance": float(self.machine_param.get_value("HC_RMTF50_tol")),
+                "results": self.collect_csv_results(
+                    case_result_dir, baseline_dir,
+                    1,
+                    float(self.machine_param.get_value("HC_RMTF50_tol")),
+                    "HC.RMTF.calc.csv"
+                )
+            }
+        }
+        
+        # Calculate overall pass/fail
+        all_passed = True
+        for section_key, section_data in results.items():
+            if section_key == "metadata":
+                continue
+            for item in section_data.get("results", []):
+                if not item.get("passed", True):
+                    all_passed = False
+                    break
+            if not all_passed:
+                break
+        
+        results["overall_passed"] = all_passed
+        
+        return results
+    
     def report(self, case_dir, baseline_dir, out_dir):
         """Generate HTML report"""
         case_result_dir = self.combine(case_dir, "3.analysis")
@@ -790,12 +927,14 @@ class CTQA:
         
         self.log_line(f"Report saved to: {html_file}")
         
-        # Also save as report.test.html for testing
-        html_test_file = self.combine(case_result_dir, "report.test.html")
-        with open(html_test_file, 'w') as f:
-            f.write(html)
+        # Save analysis results to JSON
+        result_json = self.collect_analysis_results(case_result_dir, baseline_dir, StudyDate, StudyTime, user)
+        json_file = self.combine(case_result_dir, "analysis_results.json")
+        import json
+        with open(json_file, 'w') as f:
+            json.dump(result_json, f, indent=2)
         
-        self.log_line(f"Test report saved to: {html_test_file}")
+        self.log_line(f"Analysis results JSON saved to: {json_file}")
 
 
 if __name__ == "__main__":
