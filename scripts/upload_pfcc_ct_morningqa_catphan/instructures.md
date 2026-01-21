@@ -1,1 +1,8 @@
 ./scripts/GECTSH is a data folder created by CTQA app. the cases folder has some sample cases. each case folder (date_time) has a folder 3.analysis which is report.html. the html file is the final report for the case. Given the several cases, please create a form that I can copy and paste in the Form Builder. allow users to type in the reference (baseline) values.
+
+=== catphan_image_analysis ===
+python_app is working good. Please make a fastapi server app to ./catphan_image_analysis/fastapi_server folder using the same code. the server should have endpoints that the clients can post a zipped dicom file to start an analysis, that would create a rq job into a queue and return with the job info (like job_id). the client should be able to check the job status using the job_id. the server should provide endpoint for the clients to retrieve the results. please save the results to a mongo db. the analysis code should save the results to the mongo db, in addition to saving to the file system.
+
+also, please create a react app client, ./catphan_image_analysis/react_client that the users can use to select a set of dicom files, zip them, and post to the server. also, allow the users to see a list of submitted job & view the detail reports. you can use material ui for the design.
+
+also, please create ./catphan_image_analysis/docker-compose.yml that spin up mongo db and express, please use port numbers that are not conflicting with the docuforms2 db

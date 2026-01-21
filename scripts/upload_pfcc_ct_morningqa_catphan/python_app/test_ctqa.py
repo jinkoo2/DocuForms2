@@ -347,7 +347,7 @@ def main():
         return 1
     
     # Create temporary case directory for testing
-    temp_base = base_dir / "_data" / "GECTSH" / "_test_output2"
+    temp_base = base_dir / "_data" / "GECTSH" / "_test_output4"
     temp_base.mkdir(parents=True, exist_ok=True)
     
     temp_case_dir = temp_base / "20260108_071844"
@@ -377,36 +377,24 @@ def main():
         return 1
     
     print(f"  Found {len(dicom_files)} DICOM file(s) in source folder")
-    print(f"  Copying CT.mhd and CT.zraw from original case directory")
+    print(f"  Creating CT.mhd from source DICOM files")
     
-    # Copy original CT.mhd and CT.zraw files
-    original_ct_mhd = original_case_dir / "CT.mhd"
-    original_ct_zraw = original_case_dir / "CT.zraw"
-    
-    if not original_ct_mhd.exists():
-        print(f"  ✗ ERROR: Original CT.mhd not found at: {original_ct_mhd}")
-        return 1
-    
-    if not original_ct_zraw.exists():
-        print(f"  ✗ ERROR: Original CT.zraw not found at: {original_ct_zraw}")
-        return 1
-    
-    print(f"  Original CT.mhd found: {original_ct_mhd}")
-    print(f"  Original CT.zraw found: {original_ct_zraw}")
-    
-    # Copy CT.mhd and CT.zraw to test output folder
+    # Create CT.mhd from DICOM files using dicom_series_to_mhd
+    print(f"  Creating CT.mhd from source DICOM files...")
     try:
-        ct_mhd_dest = temp_case_dir / "CT.mhd"
-        ct_zraw_dest = temp_case_dir / "CT.zraw"
+        from dicomtools import dicom_series_to_mhd
+        # Read from source, write to test output folder
+        dicom_series_to_mhd(str(original_case_dir), str(temp_case_dir))
         
-        shutil.copy2(original_ct_mhd, ct_mhd_dest)
-        print(f"  ✓ Copied CT.mhd to: {ct_mhd_dest}")
+        # Verify CT.mhd was created
+        ct_mhd = temp_case_dir / "CT.mhd"
+        if not ct_mhd.exists():
+            print(f"  ✗ ERROR: CT.mhd was not created at {ct_mhd}")
+            return 1
         
-        shutil.copy2(original_ct_zraw, ct_zraw_dest)
-        print(f"  ✓ Copied CT.zraw to: {ct_zraw_dest}")
-        
+        print(f"  ✓ CT.mhd created in test output folder: {ct_mhd}")
     except Exception as e:
-        print(f"  ✗ ERROR: Failed to copy CT.mhd/CT.zraw: {e}")
+        print(f"  ✗ ERROR: Failed to create CT.mhd from DICOM files: {e}")
         import traceback
         traceback.print_exc()
         return 1
