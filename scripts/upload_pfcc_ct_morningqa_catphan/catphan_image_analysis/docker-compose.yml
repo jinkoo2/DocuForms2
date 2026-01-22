@@ -52,16 +52,9 @@ services:
     environment:
       MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/
       REDIS_URL: redis://redis:6379/0
-      UPLOAD_DIR: /app/uploads
-      RESULTS_DIR: /app/results
-      MACHINE_PARAM_FILE: /app/config/machine_param.txt
-      SERVICE_PARAM_FILE: /app/config/service_param.txt
-      BASELINE_DIR: /app/baseline
+      DATA_DIR: /app/_data
     volumes:
-      - fastapi_uploads:/app/uploads
-      - fastapi_results:/app/results
-      - ./fastapi_server/config:/app/config:ro
-      - ./fastapi_server/baseline:/app/baseline:ro
+      - fastapi_data:/app/_data
       - ../python_app:/app/python_app:ro
     depends_on:
       - mongodb
@@ -79,16 +72,9 @@ services:
     environment:
       MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb:27017/
       REDIS_URL: redis://redis:6379/0
-      UPLOAD_DIR: /app/uploads
-      RESULTS_DIR: /app/results
-      MACHINE_PARAM_FILE: /app/config/machine_param.txt
-      SERVICE_PARAM_FILE: /app/config/service_param.txt
-      BASELINE_DIR: /app/baseline
+      DATA_DIR: /app/_data
     volumes:
-      - fastapi_uploads:/app/uploads
-      - fastapi_results:/app/results
-      - ./fastapi_server/config:/app/config:ro
-      - ./fastapi_server/baseline:/app/baseline:ro
+      - fastapi_data:/app/_data
       - ../python_app:/app/python_app:ro
     depends_on:
       - mongodb
@@ -128,8 +114,7 @@ services:
 volumes:
   mongodb_data:
   redis_data:
-  fastapi_uploads:
-  fastapi_results:
+  fastapi_data:
 
 networks:
   catphan-network:

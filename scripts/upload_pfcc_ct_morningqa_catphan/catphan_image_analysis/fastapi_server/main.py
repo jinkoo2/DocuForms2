@@ -68,9 +68,30 @@ except Exception as e:
     print(f"Warning: Could not connect to Redis: {e}. Job queue may not work.")
 
 # Configuration
-UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "./_uploads"))
+DATA_DIR = Path(os.getenv("DATA_DIR", "./_data/devices"))
+DEFAULT_DEVICE_ID = os.getenv("DEFAULT_DEVICE_ID", "pfcc_gect_catphan604")
 JOB_TIMEOUT = int(os.getenv("JOB_TIMEOUT", "600"))  # Default 10 minutes
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+def get_device_dir(device_id: str) -> Path:
+    """Get the data directory for a specific device"""
+    return DATA_DIR / device_id
+
+def get_cases_dir(device_id: str) -> Path:
+    """Get the cases directory for a specific device"""
+    cases_dir = get_device_dir(device_id) / "cases"
+    cases_dir.mkdir(parents=True, exist_ok=True)
+    return cases_dir
+
+def get_param_file(device_id: str) -> Path:
+    """Get the parameter file for a specific device"""
+    return get_device_dir(device_id) / "param.txt"
+
+def get_baseline_dir(device_id: str) -> Path:
+    """Get the baseline directory for a specific device"""
+    return get_device_dir(device_id) / "baseline"
+
+# Default upload directory (for backwards compatibility with browsing endpoints)
+CASES_DIR = get_cases_dir(DEFAULT_DEVICE_ID)
 
 
 class JobStatusResponse(BaseModel):
@@ -80,6 +101,8 @@ class JobStatusResponse(BaseModel):
     updated_at: Optional[str] = None
     error: Optional[str] = None
     result_path: Optional[str] = None
+    device_id: Optional[str] = None
+    progress: Optional[int] = None  # Progress percentage (0-100)
 
 
 class JobCreateResponse(BaseModel):
@@ -106,6 +129,88 @@ async def health_check():
     }
 
 
+def read_param_file(param_file: Path) -> dict:
+    """Read a param.txt file and return key-value pairs"""
+    params = {}
+    if param_file.exists():
+        with open(param_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    params[key.strip()] = value.strip()
+    return params
+
+
+@app.get("/api/devices")
+async def list_devices():
+    """
+    List all available imaging devices
+    
+    Returns:
+        List of devices with id, name, and description
+    """
+    devices = []
+    if DATA_DIR.exists():
+        for device_dir in sorted(DATA_DIR.iterdir()):
+            if device_dir.is_dir():
+                param_file = device_dir / "param.txt"
+                if param_file.exists():
+                    # Read device info from param.txt
+                    params = read_param_file(param_file)
+                    has_baseline = (device_dir / "baseline").exists()
+                    devices.append({
+                        "id": device_dir.name,
+                        "name": params.get("device_name", device_dir.name),
+                        "description": params.get("device_description", ""),
+                        "phantom_id": params.get("phantom_id", ""),
+                        "has_baseline": has_baseline,
+                        "ready": has_baseline
+                    })
+    return {"devices": devices}
+
+
+@app.get("/api/devices/{device_id}")
+async def get_device_info(device_id: str):
+    """
+    Get information about a specific device
+    
+    Args:
+        device_id: Device identifier
+        
+    Returns:
+        Device information
+    """
+    device_dir = get_device_dir(device_id)
+    if not device_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Device {device_id} not found")
+    
+    param_file = get_param_file(device_id)
+    baseline_dir = get_baseline_dir(device_id)
+    cases_dir = get_cases_dir(device_id)
+    
+    # Read device info from param.txt
+    params = read_param_file(param_file)
+    
+    # Count cases
+    case_count = 0
+    if cases_dir.exists():
+        case_count = len([d for d in cases_dir.iterdir() if d.is_dir()])
+    
+    return {
+        "id": device_id,
+        "name": params.get("device_name", device_id),
+        "description": params.get("device_description", ""),
+        "phantom_id": params.get("phantom_id", ""),
+        "param_file": str(param_file),
+        "baseline_dir": str(baseline_dir),
+        "cases_dir": str(cases_dir),
+        "has_config": param_file.exists(),
+        "has_baseline": baseline_dir.exists(),
+        "case_count": case_count
+    }
+
+
 @app.get("/api/jobs/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
     """
@@ -128,7 +233,9 @@ async def get_job_status(job_id: str):
             created_at=job_doc["created_at"],
             updated_at=job_doc.get("updated_at"),
             error=job_doc.get("error"),
-            result_path=job_doc.get("result_dir")
+            result_path=job_doc.get("result_dir"),
+            device_id=job_doc.get("device_id"),
+            progress=job_doc.get("progress")
         )
     else:
         raise HTTPException(status_code=503, detail="Database not available")
@@ -249,17 +356,26 @@ async def get_job_report(job_id: str):
 # Case-based upload endpoints (individual file uploads without zipping)
 # ============================================================================
 
-@app.post("/api/cases")
-async def create_case():
+@app.post("/api/devices/{device_id}/cases")
+async def create_case(device_id: str):
     """
     Create a new case folder for uploading DICOM files
+    
+    Args:
+        device_id: Device identifier (e.g., pfcc_gect_catphan604)
     
     Returns:
         Case ID (formatted as YYYYMMDD_HHMMSS)
     """
+    # Verify device exists
+    device_dir = get_device_dir(device_id)
+    if not device_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Device {device_id} not found")
+    
     # Generate case ID based on current datetime
     case_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    case_dir = UPLOAD_DIR / case_id
+    cases_dir = get_cases_dir(device_id)
+    case_dir = cases_dir / case_id
     inputs_dir = case_dir / "0.inputs"
     inputs_dir.mkdir(parents=True, exist_ok=True)
     
@@ -268,6 +384,7 @@ async def create_case():
         case_doc = {
             "job_id": case_id,  # Use case_id as job_id for consistency
             "case_id": case_id,
+            "device_id": device_id,
             "status": "uploading",
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
@@ -277,25 +394,27 @@ async def create_case():
         }
         jobs_collection.insert_one(case_doc)
     
-    return {"case_id": case_id, "status": "created"}
+    return {"case_id": case_id, "device_id": device_id, "status": "created"}
 
 
-@app.post("/api/cases/{case_id}/files")
-async def upload_file_to_case(case_id: str, file: UploadFile = File(...)):
+@app.post("/api/devices/{device_id}/cases/{case_id}/files")
+async def upload_file_to_case(device_id: str, case_id: str, file: UploadFile = File(...)):
     """
     Upload a single DICOM file to an existing case folder
     
     Args:
+        device_id: Device identifier
         case_id: Case identifier
         file: Single DICOM file
         
     Returns:
         Upload status
     """
-    case_dir = UPLOAD_DIR / case_id
+    cases_dir = get_cases_dir(device_id)
+    case_dir = cases_dir / case_id
     inputs_dir = case_dir / "0.inputs"
     if not inputs_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found for device {device_id}")
     
     # Save the file to 0.inputs folder
     file_path = inputs_dir / file.filename
@@ -308,7 +427,7 @@ async def upload_file_to_case(case_id: str, file: UploadFile = File(...)):
     # Update file count in MongoDB
     if jobs_collection is not None:
         jobs_collection.update_one(
-            {"case_id": case_id},
+            {"case_id": case_id, "device_id": device_id},
             {
                 "$inc": {"file_count": 1},
                 "$set": {"updated_at": datetime.utcnow().isoformat()}
@@ -318,22 +437,25 @@ async def upload_file_to_case(case_id: str, file: UploadFile = File(...)):
     return {"filename": file.filename, "status": "uploaded"}
 
 
-@app.post("/api/cases/{case_id}/analyze", response_model=JobCreateResponse)
-async def start_case_analysis(case_id: str):
+@app.post("/api/devices/{device_id}/cases/{case_id}/analyze", response_model=JobCreateResponse)
+async def start_case_analysis(device_id: str, case_id: str):
     """
     Start analysis on an uploaded case
     
     Args:
+        device_id: Device identifier
         case_id: Case identifier
         
     Returns:
         Job information
     """
-    case_dir = UPLOAD_DIR / case_id
+    cases_dir = get_cases_dir(device_id)
+    case_dir = cases_dir / case_id
     inputs_dir = case_dir / "0.inputs"
+    param_file = get_param_file(device_id)
     
     if not inputs_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found for device {device_id}")
     
     # Count DICOM files in 0.inputs folder (case-insensitive)
     dicom_files = list(inputs_dir.glob("*.dcm")) + list(inputs_dir.glob("*.DCM"))
@@ -351,40 +473,42 @@ async def start_case_analysis(case_id: str):
     # Update status in MongoDB
     if jobs_collection is not None:
         jobs_collection.update_one(
-            {"case_id": case_id},
+            {"case_id": case_id, "device_id": device_id},
             {
                 "$set": {
                     "job_id": job_id,
                     "status": "queued",
                     "updated_at": datetime.utcnow().isoformat(),
                     "extract_dir": str(inputs_dir),
-                    "result_dir": result_dir
+                    "result_dir": result_dir,
+                    "param_file": str(param_file)
                 }
             }
         )
     
-    # Enqueue job
+    # Enqueue job with device-specific config
     if job_queue:
         job_queue.enqueue(
             process_ctqa_analysis,
             ctqa_job_id=job_id,
             extract_dir=str(inputs_dir),
             result_dir=result_dir,
+            param_file=str(param_file),
             job_timeout=JOB_TIMEOUT
         )
     else:
         # Fallback: process synchronously
         try:
-            process_ctqa_analysis(job_id, str(inputs_dir), result_dir)
+            process_ctqa_analysis(job_id, str(inputs_dir), result_dir, str(param_file))
             if jobs_collection is not None:
                 jobs_collection.update_one(
-                    {"case_id": case_id},
+                    {"case_id": case_id, "device_id": device_id},
                     {"$set": {"status": "completed", "updated_at": datetime.utcnow().isoformat()}}
                 )
         except Exception as e:
             if jobs_collection is not None:
                 jobs_collection.update_one(
-                    {"case_id": case_id},
+                    {"case_id": case_id, "device_id": device_id},
                     {"$set": {"status": "failed", "error": str(e), "updated_at": datetime.utcnow().isoformat()}}
                 )
             raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
@@ -420,7 +544,7 @@ async def get_case_worker_log(case_id: str):
     Returns:
         Log file contents as plain text
     """
-    case_dir = UPLOAD_DIR / case_id
+    case_dir = CASES_DIR / case_id
     log_file = case_dir / "worker.log"
     
     if not case_dir.exists():
@@ -463,7 +587,7 @@ async def get_case_worker_log_raw(case_id: str):
     """
     from fastapi.responses import PlainTextResponse
     
-    case_dir = UPLOAD_DIR / case_id
+    case_dir = CASES_DIR / case_id
     log_file = case_dir / "worker.log"
     
     if not case_dir.exists():
@@ -496,8 +620,8 @@ async def list_all_cases():
         List of case folders with metadata
     """
     cases = []
-    if UPLOAD_DIR.exists():
-        for item in sorted(UPLOAD_DIR.iterdir(), reverse=True):
+    if CASES_DIR.exists():
+        for item in sorted(CASES_DIR.iterdir(), reverse=True):
             if item.is_dir():
                 # Count files in the case folder
                 files = [f for f in item.iterdir() if f.is_file()]
@@ -524,7 +648,7 @@ async def list_case_files(case_id: str):
     Returns:
         List of files with metadata
     """
-    case_dir = UPLOAD_DIR / case_id
+    case_dir = CASES_DIR / case_id
     if not case_dir.exists():
         raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
     
@@ -560,13 +684,13 @@ async def download_case_file(case_id: str, filename: str):
     Returns:
         File content
     """
-    file_path = UPLOAD_DIR / case_id / filename
+    file_path = CASES_DIR / case_id / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"File {filename} not found in case {case_id}")
     
-    # Security check: ensure path is within UPLOAD_DIR
+    # Security check: ensure path is within CASES_DIR
     try:
-        file_path.resolve().relative_to(UPLOAD_DIR.resolve())
+        file_path.resolve().relative_to(CASES_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
     
@@ -588,13 +712,13 @@ async def delete_case(case_id: str):
     Returns:
         Deletion status
     """
-    case_dir = UPLOAD_DIR / case_id
+    case_dir = CASES_DIR / case_id
     if not case_dir.exists():
         raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
     
     # Security check
     try:
-        case_dir.resolve().relative_to(UPLOAD_DIR.resolve())
+        case_dir.resolve().relative_to(CASES_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
     
@@ -633,49 +757,54 @@ HTML_STYLE = """
 </style>
 """
 
-@app.get("/cases/", response_class=HTMLResponse)
-@app.get("/cases", response_class=HTMLResponse)
-async def browse_cases_html():
-    """HTML directory listing for all cases"""
+@app.get("/data/", response_class=HTMLResponse)
+@app.get("/data", response_class=HTMLResponse)
+async def browse_data_root_html():
+    """HTML directory listing for all devices"""
     rows = []
-    if UPLOAD_DIR.exists():
-        for item in sorted(UPLOAD_DIR.iterdir(), reverse=True):
+    if DATA_DIR.exists():
+        for item in sorted(DATA_DIR.iterdir()):
             if item.is_dir():
-                files = [f for f in item.iterdir() if f.is_file()]
+                param_file = item / "param.txt"
+                params = read_param_file(param_file) if param_file.exists() else {}
+                device_name = params.get("device_name", item.name)
+                description = params.get("device_description", "")
                 stat = item.stat()
-                size = sum(f.stat().st_size for f in files)
-                size_str = f"{size / 1024:.1f} KB" if size < 1024*1024 else f"{size / 1024 / 1024:.2f} MB"
                 date_str = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+                try:
+                    item_count = len(list(item.iterdir()))
+                except:
+                    item_count = 0
                 rows.append(f"""
                     <tr>
-                        <td><span class="folder">📁</span> <a href="/cases/{item.name}/">{item.name}/</a></td>
-                        <td class="size">{len(files)} files</td>
-                        <td class="size">{size_str}</td>
+                        <td><span class="folder">📁</span> <a href="/data/{item.name}/">{item.name}/</a></td>
+                        <td class="size">{device_name}</td>
+                        <td class="size">{description}</td>
                         <td class="date">{date_str}</td>
                     </tr>
                 """)
     
-    content = "".join(rows) if rows else '<tr><td colspan="4" class="empty">No cases found</td></tr>'
+    content = "".join(rows) if rows else '<tr><td colspan="4" class="empty">No devices found</td></tr>'
     
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Cases - CTQA</title>
+        <title>Data - CTQA</title>
         {HTML_STYLE}
     </head>
     <body>
         <div class="container">
-            <h1>📂 Cases</h1>
+            <h1>📂 Devices</h1>
             <div class="breadcrumb">
-                <strong>Path:</strong> /cases/
+                <strong>Path:</strong> /data/
             </div>
             <table>
                 <thead>
                     <tr>
+                        <th>Device ID</th>
                         <th>Name</th>
-                        <th>Files</th>
-                        <th>Size</th>
+                        <th>Description</th>
                         <th>Modified</th>
                     </tr>
                 </thead>
@@ -690,89 +819,19 @@ async def browse_cases_html():
     return HTMLResponse(content=html)
 
 
-@app.get("/cases/{case_id}/", response_class=HTMLResponse)
-async def browse_case_files_html(case_id: str):
-    """HTML directory listing for files and folders in a case"""
-    case_dir = UPLOAD_DIR / case_id
-    if not case_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
-    
-    rows = []
-    # First list directories, then files
-    items = sorted(case_dir.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
-    for item in items:
-        stat = item.stat()
-        date_str = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
-        if item.is_dir():
-            # Count items in directory
-            try:
-                item_count = len(list(item.iterdir()))
-            except:
-                item_count = 0
-            rows.append(f"""
-                <tr>
-                    <td><span class="folder">📁</span> <a href="/cases/{case_id}/{item.name}/">{item.name}/</a></td>
-                    <td class="size">{item_count} items</td>
-                    <td class="date">{date_str}</td>
-                </tr>
-            """)
-        else:
-            size_str = f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / 1024 / 1024:.2f} MB"
-            rows.append(f"""
-                <tr>
-                    <td><span class="file">📄</span> <a href="/cases/{case_id}/{item.name}">{item.name}</a></td>
-                    <td class="size">{size_str}</td>
-                    <td class="date">{date_str}</td>
-                </tr>
-            """)
-    
-    content = "".join(rows) if rows else '<tr><td colspan="3" class="empty">No files or folders found</td></tr>'
-    
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>{case_id} - CTQA</title>
-        {HTML_STYLE}
-    </head>
-    <body>
-        <div class="container">
-            <h1>📂 {case_id}</h1>
-            <div class="breadcrumb">
-                <strong>Path:</strong> <a href="/cases/">cases</a> / {case_id}/
-            </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Size</th>
-                        <th>Modified</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {content}
-                </tbody>
-            </table>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
-
-
-@app.get("/cases/{case_id}/{subpath:path}/", response_class=HTMLResponse)
-async def browse_case_subdir_html(case_id: str, subpath: str):
-    """HTML directory listing for subdirectories in a case"""
-    target_dir = UPLOAD_DIR / case_id / subpath
+@app.get("/data/{path:path}/", response_class=HTMLResponse)
+async def browse_data_dir_html(path: str):
+    """HTML directory listing for any path under /data/"""
+    target_dir = DATA_DIR / path
     if not target_dir.exists():
-        raise HTTPException(status_code=404, detail=f"Directory not found: {case_id}/{subpath}")
+        raise HTTPException(status_code=404, detail=f"Directory not found: {path}")
     
     if not target_dir.is_dir():
-        raise HTTPException(status_code=400, detail=f"Not a directory: {case_id}/{subpath}")
+        raise HTTPException(status_code=400, detail=f"Not a directory: {path}")
     
     # Security check
     try:
-        target_dir.resolve().relative_to(UPLOAD_DIR.resolve())
+        target_dir.resolve().relative_to(DATA_DIR.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
     
@@ -781,7 +840,7 @@ async def browse_case_subdir_html(case_id: str, subpath: str):
     for item in items:
         stat = item.stat()
         date_str = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
-        item_path = f"{case_id}/{subpath}/{item.name}"
+        item_path = f"{path}/{item.name}"
         if item.is_dir():
             try:
                 item_count = len(list(item.iterdir()))
@@ -789,7 +848,7 @@ async def browse_case_subdir_html(case_id: str, subpath: str):
                 item_count = 0
             rows.append(f"""
                 <tr>
-                    <td><span class="folder">📁</span> <a href="/cases/{item_path}/">{item.name}/</a></td>
+                    <td><span class="folder">📁</span> <a href="/data/{item_path}/">{item.name}/</a></td>
                     <td class="size">{item_count} items</td>
                     <td class="date">{date_str}</td>
                 </tr>
@@ -798,7 +857,7 @@ async def browse_case_subdir_html(case_id: str, subpath: str):
             size_str = f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / 1024 / 1024:.2f} MB"
             rows.append(f"""
                 <tr>
-                    <td><span class="file">📄</span> <a href="/cases/{item_path}">{item.name}</a></td>
+                    <td><span class="file">📄</span> <a href="/data/{item_path}">{item.name}</a></td>
                     <td class="size">{size_str}</td>
                     <td class="date">{date_str}</td>
                 </tr>
@@ -807,25 +866,28 @@ async def browse_case_subdir_html(case_id: str, subpath: str):
     content = "".join(rows) if rows else '<tr><td colspan="3" class="empty">No files or folders found</td></tr>'
     
     # Build breadcrumb
-    parts = subpath.split('/')
-    breadcrumb_links = [f'<a href="/cases/">cases</a>', f'<a href="/cases/{case_id}/">{case_id}</a>']
-    current_path = case_id
+    parts = path.split('/')
+    breadcrumb_links = [f'<a href="/data/">data</a>']
+    current_path = ""
     for part in parts:
         if part:
-            current_path = f"{current_path}/{part}"
-            breadcrumb_links.append(f'<a href="/cases/{current_path}/">{part}</a>')
+            current_path = f"{current_path}/{part}" if current_path else part
+            breadcrumb_links.append(f'<a href="/data/{current_path}/">{part}</a>')
     breadcrumb = " / ".join(breadcrumb_links)
+    
+    # Get title from last part of path
+    title = parts[-1] if parts and parts[-1] else "Data"
     
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>{case_id}/{subpath} - CTQA</title>
+        <title>{title} - CTQA</title>
         {HTML_STYLE}
     </head>
     <body>
         <div class="container">
-            <h1>📂 {subpath.split('/')[-1] or case_id}</h1>
+            <h1>📂 {title}</h1>
             <div class="breadcrumb">
                 <strong>Path:</strong> {breadcrumb}
             </div>
@@ -848,9 +910,9 @@ async def browse_case_subdir_html(case_id: str, subpath: str):
     return HTMLResponse(content=html)
 
 
-# Mount uploads directory as static files for direct file downloads
+# Mount data directory as static files for direct file downloads
 # This must be after HTML routes to let them handle directory listings
-app.mount("/cases", StaticFiles(directory=str(UPLOAD_DIR), html=False), name="cases")
+app.mount("/data", StaticFiles(directory=str(DATA_DIR), html=False), name="data")
 
 
 if __name__ == "__main__":

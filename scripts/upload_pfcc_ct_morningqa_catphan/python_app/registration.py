@@ -8,6 +8,7 @@ import csv
 import logging
 import numpy as np
 import SimpleITK as sitk
+from param import Param
 
 
 def write_mhd_compressed(image, output_file):
@@ -24,7 +25,7 @@ def write_mhd_compressed(image, output_file):
     writer.Execute(image)
 
 
-def rigid_body_registration(fixed_image, fixed_mask, moving_image, moving_mask, out_dir, param_files=None):
+def rigid_body_registration(fixed_image, fixed_mask, moving_image, moving_mask, out_dir, param_files=None, param=None):
     """
     Perform rigid body registration using SimpleITK
     
@@ -38,6 +39,7 @@ def rigid_body_registration(fixed_image, fixed_mask, moving_image, moving_mask, 
         moving_mask: Path to moving mask (optional, empty string if not used)
         out_dir: Output directory for registration results
         param_files: List of parameter file paths (kept for compatibility, not used)
+        param: Param object or path to param.txt file (optional, for reading registration parameters)
         
     Returns:
         Path to transform file (saved as TransformParameters.0.txt for compatibility)
@@ -97,12 +99,43 @@ def rigid_body_registration(fixed_image, fixed_mask, moving_image, moving_mask, 
     # Set interpolator
     registration_method.SetInterpolator(sitk.sitkLinear)
     
+    # Read registration parameters from param file if provided
+    if param is None:
+        # Use default values
+        learningRate = 1.0
+        numberOfIterations = 200
+        convergenceMinimumValue = 1e-6
+        convergenceWindowSize = 10
+    else:
+        # Load param if it's a file path
+        if isinstance(param, str):
+            param_obj = Param(param)
+        else:
+            param_obj = param
+        
+        # Read parameters with defaults (get_value returns empty string if not found)
+        learningRate_str = param_obj.get_value("registration_learningRate")
+        learningRate = float(learningRate_str) if learningRate_str else 1.0
+        
+        numberOfIterations_str = param_obj.get_value("registration_numberOfIterations")
+        numberOfIterations = int(numberOfIterations_str) if numberOfIterations_str else 200
+        
+        convergenceMinimumValue_str = param_obj.get_value("registration_convergenceMinimumValue")
+        convergenceMinimumValue = float(convergenceMinimumValue_str) if convergenceMinimumValue_str else 1e-6
+        
+        convergenceWindowSize_str = param_obj.get_value("registration_convergenceWindowSize")
+        convergenceWindowSize = int(convergenceWindowSize_str) if convergenceWindowSize_str else 10
+        
+        logging.info(f"Registration parameters from param file: learningRate={learningRate}, "
+                    f"numberOfIterations={numberOfIterations}, convergenceMinimumValue={convergenceMinimumValue}, "
+                    f"convergenceWindowSize={convergenceWindowSize}")
+    
     # Set optimizer (gradient descent)
     registration_method.SetOptimizerAsGradientDescent(
-        learningRate=1.0,
-        numberOfIterations=200,
-        convergenceMinimumValue=1e-6,
-        convergenceWindowSize=10
+        learningRate=learningRate,
+        numberOfIterations=numberOfIterations,
+        convergenceMinimumValue=convergenceMinimumValue,
+        convergenceWindowSize=convergenceWindowSize
     )
     registration_method.SetOptimizerScalesFromPhysicalShift()
     
@@ -148,6 +181,13 @@ def rigid_body_registration(fixed_image, fixed_mask, moving_image, moving_mask, 
     
     # Add command observer to track iterations
     registration_method.AddCommand(sitk.sitkIterationEvent, iteration_callback)
+    
+    # Set multi-resolution approach for faster registration
+    # Start at 1/4 resolution, then 1/2, then full resolution
+    registration_method.SetShrinkFactorsPerLevel(shrinkFactors=[4, 2, 1])
+    registration_method.SetSmoothingSigmasPerLevel(smoothingSigmas=[2, 1, 0])
+    registration_method.SmoothingSigmasAreSpecifiedInPhysicalUnitsOn()
+    logging.info("Multi-resolution registration enabled: [4x, 2x, 1x] shrink factors")
     
     # Execute registration
     logging.info("Starting registration optimization...")

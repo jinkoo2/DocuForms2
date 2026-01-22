@@ -180,7 +180,11 @@ function JobDetailPage() {
               </Typography>
             )}
             <Chip
-              label={STATUS_LABELS[job?.status] || job?.status || 'Unknown'}
+              label={
+                job?.status === 'processing' && job?.progress !== undefined && job?.progress !== null
+                  ? `${STATUS_LABELS[job.status]} (${job.progress}%)`
+                  : STATUS_LABELS[job?.status] || job?.status || 'Unknown'
+              }
               color={STATUS_COLORS[job?.status] || 'default'}
             />
             <Button
@@ -194,7 +198,10 @@ function JobDetailPage() {
               size="small"
               variant="outlined"
               startIcon={<FolderOpenIcon />}
-              onClick={() => window.open(`${API_BASE_URL}/cases/${jobId}/`, '_blank')}
+              onClick={() => {
+                const deviceId = job?.device_id || 'pfcc_gect_catphan604'; // Fallback for old jobs
+                window.open(`${API_BASE_URL}/data/${deviceId}/cases/${jobId}/`, '_blank');
+              }}
             >
               Files
             </Button>
@@ -254,7 +261,7 @@ function JobDetailPage() {
 
             {job.status === 'processing' && (
               <Alert severity="info" sx={{ mb: 2 }}>
-                Analysis is in progress. This page will automatically update when complete.
+                Analysis is in progress{job.progress !== undefined && job.progress !== null ? ` (${job.progress}%)` : ''}. This page will automatically update when complete.
               </Alert>
             )}
 

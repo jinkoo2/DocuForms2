@@ -13,7 +13,7 @@ import redis
 load_dotenv()
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6381/0")
-MACHINE_PARAM_FILE = os.getenv("MACHINE_PARAM_FILE", "./config/machine_param.txt")
+PARAM_FILE = os.getenv("PARAM_FILE", "./_data/devices/pfcc_gect_catphan604/param.txt")
 
 
 def check_config_files():
@@ -23,7 +23,7 @@ def check_config_files():
     print("=" * 60)
     
     config_files = [
-        ("Machine Param", MACHINE_PARAM_FILE),
+        ("Param", PARAM_FILE),
     ]
     
     all_ok = True

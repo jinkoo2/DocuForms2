@@ -26,15 +26,26 @@ from imagetools import (
 class CTQA:
     """CT Quality Assurance processing class"""
     
-    def __init__(self, machine_param_file=None, service_param_file=None):
+    def __init__(self, machine_param_file=None, device_id=None, service_param_file=None):
         """
         Initialize CTQA with parameter files
         
         Args:
-            machine_param_file: Path to machine parameter file
+            machine_param_file: Path to machine parameter file (e.g., ./_data/devices/{device_id}/param.txt)
+            device_id: Device identifier (derived from param file path if not provided)
             service_param_file: Deprecated, kept for backwards compatibility (ignored)
         """
         self.machine_param = Param(machine_param_file) if machine_param_file else None
+        
+        # Derive device_id from param file path if not provided
+        if device_id:
+            self.device_id = device_id
+        elif machine_param_file:
+            # Extract device_id from path: ./_data/devices/{device_id}/param.txt
+            param_path = Path(machine_param_file)
+            self.device_id = param_path.parent.name
+        else:
+            self.device_id = None
         
         # Setup logging
         self.log_file = self._setup_logging()
@@ -60,10 +71,21 @@ class CTQA:
         console_handler.setFormatter(formatter)
         
         # Configure root logger
+        # Only add handlers if root logger doesn't already have file handlers (to avoid duplicates when called from worker)
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.INFO)
-        root_logger.addHandler(file_handler)
-        root_logger.addHandler(console_handler)
+        
+        # Check if root logger already has file handlers (e.g., from worker setup)
+        existing_file_handlers = [h for h in root_logger.handlers if isinstance(h, logging.FileHandler)]
+        
+        if not existing_file_handlers:
+            # No file handlers exist, add ours
+            root_logger.addHandler(file_handler)
+            root_logger.addHandler(console_handler)
+        else:
+            # File handlers already exist (likely from worker), don't add duplicate handlers
+            # CTQA will use the existing logging setup
+            pass
         
         # Ensure output is flushed
         sys.stdout.flush()
@@ -84,12 +106,13 @@ class CTQA:
         """Combine two paths"""
         return os.path.join(path1, path2)
     
-    def run(self, case_dir):
+    def run(self, case_dir, progress_callback=None):
         """
         Main processing function - processes CT DICOM files and generates report
         
         Args:
             case_dir: Directory containing CT DICOM files (CT.xxx.dcm) or CT.mhd
+            progress_callback: Optional callback function(progress: int) to report progress (0-100)
         """
         print("Starting CTQA.run()...", flush=True)
         self.log_line("ctqa.run()")
@@ -99,8 +122,9 @@ class CTQA:
         if not os.path.exists(case_dir):
             self.log_error(f"Case directory not found: {case_dir}")
         
-        baseline_dir = self.machine_param.get_value("baseline_dir")
-        if not baseline_dir or not os.path.exists(baseline_dir):
+        # Construct baseline_dir from device_id
+        baseline_dir = f"./_data/devices/{self.device_id}/baseline"
+        if not os.path.exists(baseline_dir):
             self.log_error(f"Baseline directory not found: {baseline_dir}")
         
         # Transfer the analysis masks to the case image
@@ -186,7 +210,10 @@ class CTQA:
         
         # param_files parameter kept for compatibility but not used with SimpleITK rigid registration
         param_files = []  # Empty list since SimpleITK doesn't need parameter files
-        rigid_body_registration(f_abs, fMask, m, mMask, reg_out, param_files)
+        # Pass machine_param to registration function to read registration parameters
+        rigid_body_registration(f_abs, fMask, m, mMask, reg_out, param_files, param=self.machine_param)
+        if progress_callback:
+            progress_callback(40)  # Registration complete
         
         # Transfer masks
         self.log_line("transferring masks...")
@@ -199,16 +226,22 @@ class CTQA:
         self.transfer_masks(baseline_dir, baseline_ext, case_dir, num_transforms, "LC")
         self.transfer_masks(baseline_dir, baseline_ext, case_dir, num_transforms, "geo")
         self.transfer_masks(baseline_dir, baseline_ext, case_dir, num_transforms, "DT")
+        if progress_callback:
+            progress_callback(60)  # Mask transfer complete
         
         # Do the analysis
         result_dir = self.combine(case_dir, "3.analysis")
         self.log_line("analyzing data...")
         # Use "mhd" for mask extension since transferred masks are now saved as MHD
         self.analyze(case_dir, "mhd", self.combine(case_dir, "2.seg"), "mhd", result_dir)
+        if progress_callback:
+            progress_callback(80)  # Analysis complete
         
         # Make a report
         self.log_line("making a report...")
         self.report(case_dir, baseline_dir, result_dir)
+        if progress_callback:
+            progress_callback(100)  # Report generation complete
         
         # Email the report (optional)
         self.log_line("emailing report...")
@@ -754,7 +787,7 @@ class CTQA:
                 "study_date": study_date,
                 "study_time": study_time,
                 "operator": operator,
-                "machine": self.machine_param.get_value("machine_name") or "Unknown"
+                "device_name": self.machine_param.get_value("device_name") or "Unknown"
             },
             "hu_consistency": {
                 "tolerance": float(self.machine_param.get_value("HU_tol")),
@@ -876,8 +909,8 @@ class CTQA:
             StudyTime = now.strftime("%H%M%S")
             SeriesNumber = ""
         
-        # Read template
-        html_template_file = self.machine_param.get_value("html_report_template")
+        # Read template - construct path from device_id
+        html_template_file = f"./_data/devices/{self.device_id}/report_templates/full/report.html"
         if not os.path.exists(html_template_file):
             self.log_error(f"report template not found: {html_template_file}")
             return

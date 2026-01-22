@@ -34,10 +34,10 @@ except Exception as e:
     results_collection = None
 
 # Configuration
-MACHINE_PARAM_FILE = os.getenv("MACHINE_PARAM_FILE", "./config/machine_param.txt")
+PARAM_FILE = os.getenv("PARAM_FILE", "./_data/devices/pfcc_gect_catphan604/param.txt")
 
 
-def update_job_status(job_id: str, status: str, error: str = None, result_dir: str = None):
+def update_job_status(job_id: str, status: str, error: str = None, result_dir: str = None, progress: int = None):
     """Update job status in MongoDB"""
     if jobs_collection is not None:
         update_doc = {
@@ -48,6 +48,8 @@ def update_job_status(job_id: str, status: str, error: str = None, result_dir: s
             update_doc["error"] = error
         if result_dir:
             update_doc["result_dir"] = result_dir
+        if progress is not None:
+            update_doc["progress"] = progress
         
         jobs_collection.update_one(
             {"job_id": job_id},
@@ -127,17 +129,28 @@ def setup_job_logger(job_id: str, log_file: str):
     logger.addHandler(console_handler)
     
     # Also configure root logger to write to the same file
+    # But avoid duplicates - only add if not already present
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    # Remove existing file handlers from root
+    
+    # Remove existing file handlers from root to avoid duplicates
     root_logger.handlers = [h for h in root_logger.handlers if not isinstance(h, logging.FileHandler)]
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
+    
+    # Check if our file handler is already in root (shouldn't be, but check anyway)
+    existing_file_handlers = [h for h in root_logger.handlers 
+                             if isinstance(h, logging.FileHandler) and h.baseFilename == file_handler.baseFilename]
+    if not existing_file_handlers:
+        root_logger.addHandler(file_handler)
+    
+    # Only add console handler if there isn't already one to avoid duplicate console output
+    existing_console_handlers = [h for h in root_logger.handlers if isinstance(h, logging.StreamHandler)]
+    if not existing_console_handlers:
+        root_logger.addHandler(console_handler)
     
     return logger
 
 
-def process_ctqa_analysis(ctqa_job_id: str, extract_dir: str, result_dir: str):
+def process_ctqa_analysis(ctqa_job_id: str, extract_dir: str, result_dir: str, param_file: str = None):
     """
     Process CTQA analysis for a job
     
@@ -145,6 +158,7 @@ def process_ctqa_analysis(ctqa_job_id: str, extract_dir: str, result_dir: str):
         ctqa_job_id: Job identifier (named to avoid conflict with RQ's job_id)
         extract_dir: Directory containing extracted DICOM files (0.inputs folder)
         result_dir: Directory to save results (case root folder)
+        param_file: Device-specific parameter file (optional, falls back to PARAM_FILE)
     """
     job_id = ctqa_job_id  # Alias for clarity
     
@@ -157,23 +171,26 @@ def process_ctqa_analysis(ctqa_job_id: str, extract_dir: str, result_dir: str):
     logger.info(f"Starting CTQA analysis for job {job_id}")
     logger.info(f"Extract dir (inputs): {extract_dir}")
     logger.info(f"Result dir (case root): {result_dir}")
+    logger.info(f"Param file: {param_file}")
     logger.info(f"Log file: {log_file}")
     
     try:
         # Update job status to processing
         update_job_status(job_id, "processing")
         
-        # Initialize CTQA with parameter file
-        machine_param_file = MACHINE_PARAM_FILE
+        # Determine param file path
+        if not param_file:
+            param_file = PARAM_FILE
         
         # Check if parameter file exists
-        logger.info(f"Machine param file: {machine_param_file}")
+        logger.info(f"Param file: {param_file}")
         
-        if not os.path.exists(machine_param_file):
-            raise Exception(f"Machine parameter file not found: {machine_param_file}")
+        if not os.path.exists(param_file):
+            raise Exception(f"Parameter file not found: {param_file}")
         
         # Convert DICOM files from extract_dir (0.inputs) to CT.mhd in result_dir (case root)
         # This ensures CTQA creates output folders (1.reg, 2.seg, 3.analysis) in the case root
+        update_job_status(job_id, "processing", progress=5)
         ct_mhd_path = Path(result_dir) / "CT.mhd"
         if not ct_mhd_path.exists():
             logger.info(f"Converting DICOM files from {extract_dir} to {result_dir}/CT.mhd...")
@@ -186,13 +203,15 @@ def process_ctqa_analysis(ctqa_job_id: str, extract_dir: str, result_dir: str):
         else:
             logger.info(f"CT.mhd already exists: {ct_mhd_path}")
         
+        update_job_status(job_id, "processing", progress=10)
         logger.info("Initializing CTQA...")
-        ctqa = CTQA(machine_param_file=machine_param_file)
+        ctqa = CTQA(machine_param_file=param_file)
         
         # Run CTQA analysis on the case root (result_dir)
         # CTQA will find CT.mhd there and create 1.reg, 2.seg, 3.analysis in the same directory
+        # Pass callback to track progress
         logger.info("Starting CTQA.run()...")
-        ctqa.run(result_dir)
+        ctqa.run(result_dir, progress_callback=lambda p: update_job_status(job_id, "processing", progress=p))
         logger.info("CTQA.run() completed")
         
         # Find report file (outputs are now directly in result_dir)

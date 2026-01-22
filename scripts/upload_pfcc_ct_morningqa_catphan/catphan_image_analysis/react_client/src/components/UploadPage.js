@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Paper,
   Box,
@@ -12,6 +12,11 @@ import {
   ListItemIcon,
   IconButton,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -24,6 +29,9 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8003';
 const PARALLEL_UPLOADS = parseInt(process.env.REACT_APP_PARALLEL_UPLOADS || '5', 10);
 
 function UploadPage() {
+  const [devices, setDevices] = useState([]);
+  const [selectedDevice, setSelectedDevice] = useState('');
+  const [loadingDevices, setLoadingDevices] = useState(true);
   const [files, setFiles] = useState([]); // {file, status: 'pending'|'uploading'|'uploaded'|'error'}
   const [caseId, setCaseId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -33,6 +41,27 @@ function UploadPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const completedCountRef = useRef(0);
+
+  // Fetch available devices on mount
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/devices`);
+        const deviceList = response.data.devices || [];
+        setDevices(deviceList);
+        // Auto-select first ready device
+        const readyDevices = deviceList.filter(d => d.ready);
+        if (readyDevices.length > 0) {
+          setSelectedDevice(readyDevices[0].id);
+        }
+      } catch (err) {
+        setError('Failed to load devices: ' + (err.response?.data?.detail || err.message));
+      } finally {
+        setLoadingDevices(false);
+      }
+    };
+    fetchDevices();
+  }, []);
 
   // Upload a single file and update its status
   const uploadSingleFile = useCallback(async (file, index, currentCaseId) => {
@@ -49,7 +78,7 @@ function UploadPage() {
       const formData = new FormData();
       formData.append('file', file);
       
-      await axios.post(`${API_BASE_URL}/api/cases/${currentCaseId}/files`, formData, {
+      await axios.post(`${API_BASE_URL}/api/devices/${selectedDevice}/cases/${currentCaseId}/files`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -82,7 +111,7 @@ function UploadPage() {
 
       return false;
     }
-  }, []);
+  }, [selectedDevice]);
 
   // Process files in parallel with concurrency limit
   const uploadFilesParallel = useCallback(async (filesToUpload, startIndex, currentCaseId) => {
@@ -105,6 +134,11 @@ function UploadPage() {
   const handleFileSelect = async (event) => {
     const selectedFiles = Array.from(event.target.files);
     if (selectedFiles.length === 0) return;
+    
+    if (!selectedDevice) {
+      setError('Please select a device first');
+      return;
+    }
 
     setError(null);
     setUploading(true);
@@ -115,7 +149,7 @@ function UploadPage() {
       // Create case folder if not exists
       let currentCaseId = caseId;
       if (!currentCaseId) {
-        const response = await axios.post(`${API_BASE_URL}/api/cases`);
+        const response = await axios.post(`${API_BASE_URL}/api/devices/${selectedDevice}/cases`);
         currentCaseId = response.data.case_id;
         setCaseId(currentCaseId);
       }
@@ -161,7 +195,7 @@ function UploadPage() {
     setError(null);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/cases/${caseId}/analyze`);
+      const response = await axios.post(`${API_BASE_URL}/api/devices/${selectedDevice}/cases/${caseId}/analyze`);
       setSuccess(`Analysis started! Job ID: ${response.data.job_id}`);
       
       // Navigate to job detail page
@@ -185,18 +219,57 @@ function UploadPage() {
   const uploadedCount = files.filter(f => f.status === 'uploaded').length;
   const uploadingCount = files.filter(f => f.status === 'uploading').length;
 
+  const selectedDeviceInfo = devices.find(d => d.id === selectedDevice);
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h5" gutterBottom>
         Upload DICOM Files
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Select DICOM files to upload. Files are uploaded in parallel ({PARALLEL_UPLOADS} at a time).
+        Select a device and upload DICOM files for analysis. Files are uploaded in parallel ({PARALLEL_UPLOADS} at a time).
       </Typography>
+
+      {/* Device Selector */}
+      <Box sx={{ mb: 3 }}>
+        <FormControl fullWidth disabled={loadingDevices || uploading || caseId !== null}>
+          <InputLabel id="device-select-label">Select Device</InputLabel>
+          <Select
+            labelId="device-select-label"
+            value={selectedDevice}
+            label="Select Device"
+            onChange={(e) => setSelectedDevice(e.target.value)}
+          >
+            {loadingDevices ? (
+              <MenuItem value="">
+                <CircularProgress size={20} sx={{ mr: 1 }} /> Loading devices...
+              </MenuItem>
+            ) : devices.length === 0 ? (
+              <MenuItem value="">No devices available</MenuItem>
+            ) : (
+              devices.map((device) => (
+                <MenuItem 
+                  key={device.id} 
+                  value={device.id}
+                  disabled={!device.ready}
+                >
+                  {device.name} {device.description && `- ${device.description}`}
+                  {!device.ready && ' (Not Ready)'}
+                </MenuItem>
+              ))
+            )}
+          </Select>
+        </FormControl>
+        {selectedDeviceInfo && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+            Device ID: {selectedDeviceInfo.id} | Phantom: {selectedDeviceInfo.phantom_id || 'N/A'}
+          </Typography>
+        )}
+      </Box>
 
       {caseId && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Case ID: <strong>{caseId}</strong>
+          Case ID: <strong>{caseId}</strong> (Device: {selectedDeviceInfo?.name || selectedDevice})
           <Button size="small" onClick={handleNewCase} sx={{ ml: 2 }}>
             Start New Case
           </Button>
@@ -224,14 +297,14 @@ function UploadPage() {
           type="file"
           onChange={handleFileSelect}
           ref={fileInputRef}
-          disabled={uploading}
+          disabled={uploading || !selectedDevice}
         />
         <label htmlFor="file-upload">
           <Button
             variant="contained"
             component="span"
             startIcon={<CloudUploadIcon />}
-            disabled={uploading}
+            disabled={uploading || !selectedDevice}
           >
             Select & Upload Files
           </Button>
