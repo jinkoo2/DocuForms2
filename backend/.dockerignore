@@ -1,0 +1,45 @@
+# Exclude uploads directory (60GB+ of files)
+_uploads/
+uploads/
+
+# Exclude Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Exclude virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Exclude git
+.git/
+.gitignore
+
+# Exclude test files and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Exclude environment files
+.env
+.env.local
+
+# Exclude documentation
+*.md
+!README.md
+
+# Exclude migration scripts (not needed in image)
+migrate_data.py
+MIGRATION.md

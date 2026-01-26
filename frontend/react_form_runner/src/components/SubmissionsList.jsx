@@ -1,22 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { fetchSubmissions, deleteSubmission, setBaseline, BACKEND_URL } from '../utils/api';
-import SubmissionPreview from './SubmissionPreview';
 import PlotModal from './PlotModal';
 
 function SubmissionsList({ formId }) {
+  // Initialize date range: 30 days ago to today
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    // Format as YYYY-MM-DD for date input
+    const formatDateForInput = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    return {
+      start: formatDateForInput(thirtyDaysAgo),
+      end: formatDateForInput(today)
+    };
+  };
+
+  const defaultRange = getDefaultDateRange();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('table');
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
-  const [showPreview, setShowPreview] = useState(false);
   const [plotField, setPlotField] = useState(null);
+  const [startDate, setStartDate] = useState(defaultRange.start);
+  const [endDate, setEndDate] = useState(defaultRange.end);
+
+  // Convert date format to ISO format for API
+  // Start date: beginning of day (00:00:00), End date: end of day (23:59:59)
+  const convertToISO = (dateStr, isEndDate = false) => {
+    if (!dateStr) return null;
+    // date format is YYYY-MM-DD
+    if (isEndDate) {
+      // End date: set to end of day (23:59:59.999)
+      return `${dateStr}T23:59:59.999`;
+    } else {
+      // Start date: set to beginning of day (00:00:00)
+      return `${dateStr}T00:00:00`;
+    }
+  };
 
   const loadSubmissions = async () => {
     if (!formId) return;
     
     try {
       setLoading(true);
-      const data = await fetchSubmissions(formId);
+      const startISO = convertToISO(startDate, false); // Start of day
+      const endISO = convertToISO(endDate, true); // End of day
+      const data = await fetchSubmissions(formId, startISO, endISO);
       console.log('Loaded submissions:', JSON.stringify(data, null, 2));
       if (data && data.length > 0) {
         data.forEach((sub, idx) => {
@@ -95,8 +131,12 @@ function SubmissionsList({ formId }) {
   };
 
   const handleView = (submission) => {
-    setSelectedSubmission(submission);
-    setShowPreview(true);
+    const submissionId = submission.id || submission._id;
+    // Store submission data in sessionStorage for the new tab to retrieve
+    sessionStorage.setItem(`submission_${submissionId}`, JSON.stringify(submission));
+    // Open new tab with submission view route
+    const url = `/submission/${formId}/${submissionId}`;
+    window.open(url, '_blank');
   };
 
   if (loading) {
@@ -110,18 +150,44 @@ function SubmissionsList({ formId }) {
   if (viewMode === 'table') {
     return (
       <>
-        <div className="d-flex align-items-center justify-content-end gap-2 mb-2">
-          <label className="form-label mb-0" htmlFor="submissions-view-mode">View:</label>
-          <select
-            id="submissions-view-mode"
-            className="form-select form-select-sm"
-            style={{ width: 'auto' }}
-            value={viewMode}
-            onChange={(e) => setViewMode(e.target.value)}
-          >
-            <option value="list">List</option>
-            <option value="table">Table</option>
-          </select>
+        <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+          <div className="d-flex align-items-center gap-2">
+            <label className="form-label mb-0">Date Range:</label>
+            <input
+              type="date"
+              className="form-control form-control-sm"
+              style={{ width: 'auto' }}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <span className="text-muted">to</span>
+            <input
+              type="date"
+              className="form-control form-control-sm"
+              style={{ width: 'auto' }}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={loadSubmissions}
+            >
+              Update List
+            </button>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <label className="form-label mb-0" htmlFor="submissions-view-mode">View:</label>
+            <select
+              id="submissions-view-mode"
+              className="form-select form-select-sm"
+              style={{ width: 'auto' }}
+              value={viewMode}
+              onChange={(e) => setViewMode(e.target.value)}
+            >
+              <option value="list">List</option>
+              <option value="table">Table</option>
+            </select>
+          </div>
         </div>
         <div className="table-responsive">
           <table className="table table-sm align-middle">
@@ -214,15 +280,6 @@ function SubmissionsList({ formId }) {
             </tbody>
           </table>
         </div>
-        {showPreview && selectedSubmission && (
-          <SubmissionPreview
-            submission={selectedSubmission}
-            onClose={() => {
-              setShowPreview(false);
-              setSelectedSubmission(null);
-            }}
-          />
-        )}
         {plotField && (
           <PlotModal
             fieldKey={plotField}
@@ -237,18 +294,44 @@ function SubmissionsList({ formId }) {
   // List view
   return (
     <>
-      <div className="d-flex align-items-center justify-content-end gap-2 mb-2">
-        <label className="form-label mb-0" htmlFor="submissions-view-mode">View:</label>
-        <select
-          id="submissions-view-mode"
-          className="form-select form-select-sm"
-          style={{ width: 'auto' }}
-          value={viewMode}
-          onChange={(e) => setViewMode(e.target.value)}
-        >
-          <option value="list">List</option>
-          <option value="table">Table</option>
-        </select>
+      <div className="d-flex align-items-center justify-content-between gap-2 mb-3">
+        <div className="d-flex align-items-center gap-2">
+          <label className="form-label mb-0">Date Range:</label>
+          <input
+            type="date"
+            className="form-control form-control-sm"
+            style={{ width: 'auto' }}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <span className="text-muted">to</span>
+          <input
+            type="date"
+            className="form-control form-control-sm"
+            style={{ width: 'auto' }}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={loadSubmissions}
+          >
+            Update List
+          </button>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <label className="form-label mb-0" htmlFor="submissions-view-mode">View:</label>
+          <select
+            id="submissions-view-mode"
+            className="form-select form-select-sm"
+            style={{ width: 'auto' }}
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+          >
+            <option value="list">List</option>
+            <option value="table">Table</option>
+          </select>
+        </div>
       </div>
       {submissions.map((s) => {
         // Use performedAt if present, otherwise fall back to submittedAt
@@ -335,15 +418,6 @@ function SubmissionsList({ formId }) {
           </div>
         );
       })}
-      {showPreview && selectedSubmission && (
-        <SubmissionPreview
-          submission={selectedSubmission}
-          onClose={() => {
-            setShowPreview(false);
-            setSelectedSubmission(null);
-          }}
-        />
-      )}
       {plotField && (
         <PlotModal
           fieldKey={plotField}

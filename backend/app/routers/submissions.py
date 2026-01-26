@@ -86,15 +86,66 @@ async def submit_form(form_id: str, submission: SubmissionIn):
 
 
 @router.get("/{form_id}/submissions")
-async def list_submissions(form_id: str):
-    """Return submissions for a form (most recent first)."""
+async def list_submissions(
+    form_id: str,
+    startDate: str = Query(None, description="Start date in ISO format (YYYY-MM-DDTHH:mm:ss)"),
+    endDate: str = Query(None, description="End date in ISO format (YYYY-MM-DDTHH:mm:ss)")
+):
+    """Return submissions for a form (most recent first). Optionally filter by date range.
+    Uses performedAt if present, otherwise submittedAt for date filtering."""
     submissions = []
+    
+    # Parse date filters if provided
+    start_datetime = None
+    end_datetime = None
+    if startDate:
+        try:
+            # Handle date-only format (YYYY-MM-DD) or datetime format (YYYY-MM-DDTHH:mm:ss)
+            if 'T' in startDate:
+                start_datetime = datetime.fromisoformat(startDate.replace('Z', '+00:00')).replace(tzinfo=None)
+            else:
+                # Date-only: set to beginning of day (00:00:00)
+                start_datetime = datetime.strptime(startDate, '%Y-%m-%d')
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid startDate format. Use YYYY-MM-DD or ISO format (YYYY-MM-DDTHH:mm:ss)")
+    if endDate:
+        try:
+            # Handle date-only format (YYYY-MM-DD) or datetime format (YYYY-MM-DDTHH:mm:ss)
+            if 'T' in endDate:
+                end_datetime = datetime.fromisoformat(endDate.replace('Z', '+00:00')).replace(tzinfo=None)
+            else:
+                # Date-only: set to end of day (23:59:59.999999)
+                end_datetime = datetime.strptime(endDate, '%Y-%m-%d').replace(hour=23, minute=59, second=59, microsecond=999999)
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid endDate format. Use YYYY-MM-DD or ISO format (YYYY-MM-DDTHH:mm:ss)")
+    
     cursor = submissions_collection.find(
         {"formId": form_id},
         sort=[("submittedAt", -1)]
     )
     async for doc in cursor:
         doc = convert_objectid_to_str(doc)
+        
+        # Use performedAt if present, otherwise submittedAt for date filtering
+        date_value = doc.get("performedAt") or doc.get("submittedAt")
+        
+        # Apply date filtering if dates are provided
+        if date_value:
+            date_value_dt = date_value
+            if isinstance(date_value, str):
+                try:
+                    date_value_dt = datetime.fromisoformat(date_value.replace('Z', '+00:00')).replace(tzinfo=None)
+                except (ValueError, AttributeError):
+                    # If parsing fails, skip date filtering for this submission
+                    date_value_dt = None
+            
+            if date_value_dt:
+                # Check if submission is within date range (inclusive on both ends)
+                if start_datetime and date_value_dt < start_datetime:
+                    continue
+                if end_datetime and date_value_dt > end_datetime:
+                    continue
+        
         attachments_data = doc.get("attachments")
         
         submissions.append({
@@ -111,6 +162,21 @@ async def list_submissions(form_id: str):
             "comments": doc.get("comments", ""),
             "attachments": attachments_data if attachments_data else None,
         })
+    
+    # Sort by performedAt if present, otherwise submittedAt (most recent first)
+    def get_sort_date(submission):
+        """Get the date to use for sorting: performedAt if present, otherwise submittedAt."""
+        date_value = submission.get("performedAt") or submission.get("submittedAt")
+        if date_value:
+            if isinstance(date_value, str):
+                try:
+                    return datetime.fromisoformat(date_value.replace('Z', '+00:00')).replace(tzinfo=None)
+                except (ValueError, AttributeError):
+                    return datetime.min
+            return date_value
+        return datetime.min
+    
+    submissions.sort(key=get_sort_date, reverse=True)
     return submissions
 
 

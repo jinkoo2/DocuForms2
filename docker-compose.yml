@@ -1,0 +1,60 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo_data:/data/db
+
+  mongo-express:
+    image: mongo-express:1
+    container_name: mongo-express
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8082:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: example
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_BASICAUTH: "false"
+
+  docuforms2-fastapi-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docuforms2-fastapi-server
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - "8001:8001"
+    environment:
+      MONGO_URI: "mongodb://root:example@mongo:27017/?authSource=admin"
+      DB_NAME: "docuforms2"
+      MAX_UPLOAD_SIZE: "1073741824"
+    volumes:
+      - ./backend:/app
+
+  docuforms2-react-client:
+    build:
+      context: ./frontend/react_form_runner
+      dockerfile: Dockerfile
+    container_name: docuforms2-react-client
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./frontend/react_form_runner:/app
+      - /app/node_modules
+    depends_on:
+      - docuforms2-fastapi-server
+
+volumes:
+  mongo_data:

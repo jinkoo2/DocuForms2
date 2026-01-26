@@ -19,8 +19,19 @@ export async function fetchForm(formId) {
   return res.json();
 }
 
-export async function fetchSubmissions(formId) {
-  const res = await fetch(`${API_BASE}/${formId}/submissions`);
+export async function fetchSubmissions(formId, startDate = null, endDate = null) {
+  let url = `${API_BASE}/${formId}/submissions`;
+  const params = new URLSearchParams();
+  if (startDate) {
+    params.append('startDate', startDate);
+  }
+  if (endDate) {
+    params.append('endDate', endDate);
+  }
+  if (params.toString()) {
+    url += '?' + params.toString();
+  }
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to load submissions: ${res.statusText}`);
   return res.json();
 }

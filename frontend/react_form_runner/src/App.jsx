@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, useSearchParams, Link, useNavigate } from
 import FormList from './components/FormList';
 import FormRunner from './components/FormRunner';
 import FormBuilder from './components/FormBuilder';
+import SubmissionView from './components/SubmissionView';
+import TrendView from './components/TrendView';
 import { BACKEND_URL } from './utils/api';
 import './utils/testFunctions'; // Make test functions available globally
 import './styles/styles.css';
@@ -66,6 +68,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/builder" element={<FormBuilder />} />
+        <Route path="/submission/:formId/:submissionId" element={<SubmissionView />} />
+        <Route path="/trend/:formId/:fieldKey" element={<TrendView />} />
         <Route path="/" element={<RunnerContent />} />
       </Routes>
     </BrowserRouter>
