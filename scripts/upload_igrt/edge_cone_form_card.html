@@ -1,0 +1,439 @@
+<body>
+<div class="container-fluid">
+  <h2 class="mb-4">IGRT Edge Cone</h2>
+  
+  <!-- Case Information -->
+  <div class="card mb-3">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0">Case Information</h5>
+    </div>
+    <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label for="performed_at" class="form-label">Performed At</label>
+          <input type="datetime-local" id="performed_at" name="performed_at" required>
+        </div>
+        <div class="col-md-6">
+          <label for="performed_by" class="form-label">Performed By</label>
+          <input type="text" id="performed_by" name="performed_by" placeholder="e.g., jkim20" required>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=270, T=0 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=270, T=0 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g270_t0_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g270_t0_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g270_t0_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g270_t0_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g270_t0_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g270_t0_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g270_t0_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g270_t0_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g270_t0_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g270_t0_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=0, T=0 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=0, T=0 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g0_t0_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g0_t0_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g0_t0_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g0_t0_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g0_t0_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g0_t0_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g0_t0_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g0_t0_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g0_t0_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g0_t0_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=90, T=0 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=90, T=0 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g90_t0_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g90_t0_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g90_t0_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g90_t0_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g90_t0_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g90_t0_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g90_t0_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g90_t0_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g90_t0_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g90_t0_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=180, T=0 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=180, T=0 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g180_t0_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t0_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t0_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t0_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t0_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t0_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t0_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t0_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t0_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t0_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=180, T=270 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=180, T=270 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g180_t270_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t270_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t270_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t270_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t270_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t270_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t270_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t270_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t270_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t270_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=180, T=310 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=180, T=310 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g180_t310_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t310_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t310_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t310_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t310_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t310_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t310_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t310_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t310_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t310_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=180, T=50 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=180, T=50 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g180_t50_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t50_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t50_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t50_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t50_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t50_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t50_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t50_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t50_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t50_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=180, T=90 [MV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=180, T=90 [MV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g180_t90_mv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from FC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t90_mv_bb_fc_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t90_mv_bb_fc_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t90_mv_bb_fc_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t90_mv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t90_mv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t90_mv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">FC from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g180_t90_mv_fc_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g180_t90_mv_fc_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g180_t90_mv_fc_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=0, T=0 [KV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=0, T=0 [KV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g0_t0_kv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g0_t0_kv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g0_t0_kv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g0_t0_kv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- G=90, T=0 [KV] -->
+  <div class="card mb-3">
+    <div class="card-header bg-secondary text-white">
+      <h5 class="mb-0">G=90, T=0 [KV]</h5>
+    </div>
+    <div class="card-body">
+      <img id="img_g90_t0_kv" width="200" height="200" style="display:block; object-fit:cover; margin-bottom: 1rem;">
+      <div class="mb-3">
+        <div class="input-group mb-1">
+          <span class="input-group-text">BB from IC</span>
+          <span class="input-group-text">x_offset</span>
+          <input id="g90_t0_kv_bb_ic_x" type="number" >
+          <span class="input-group-text">y_offset</span>
+          <input id="g90_t0_kv_bb_ic_y" type="number" >
+          <span class="input-group-text">d</span>
+          <input id="g90_t0_kv_bb_ic_d" type="number" data-pass-range="0:1.0" data-result="PASS">
+          <span class="input-group-text fw-bold"></span>
+        </div> z
+      </div>
+    </div>
+  </div>
+
+  <div class="form-text">Tolerance = 1.0 mm</div>
+</div>
+</body>
+

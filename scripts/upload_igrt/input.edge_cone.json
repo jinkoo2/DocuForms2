@@ -1,0 +1,7 @@
+{
+  "backend_url": "http://localhost:8001",
+  "form_id": "sb_edge_cone_wl",
+  "base_dir": "_data/Edge_Cone/Data",
+  "dry_run": false,
+  "first_n_cases_to_upload": 1
+}
